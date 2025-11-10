@@ -512,12 +512,15 @@ class TradingBotTUI(App):
             Vertical(
                 Static("[bold cyan]Backtest History[/bold cyan]", id="history-title"),
                 Static(
-                    "[dim]Select runs to compare (Ctrl+Click for multiple)[/dim]",
+                    "[dim]Search and click rows for quick actions[/dim]",
                     id="history-hint",
                 ),
                 Horizontal(
+                    Input(placeholder="🔍 Search by symbol, strategy, or date...", id="history-search"),
+                    Button("🗑️ Clear", id="btn-clear-search"),
+                ),
+                Horizontal(
                     Button("📊 Compare Selected", id="btn-compare", variant="primary"),
-                    Button("🗑️ Clear History", id="btn-clear-history", variant="error"),
                     Button("💾 Export CSV", id="btn-export-history"),
                     Button("🔄 Refresh", id="btn-refresh-history"),
                 ),
@@ -866,6 +869,55 @@ class TradingBotTUI(App):
     def on_export_mc(self) -> None:
         """Export Monte Carlo results."""
         self.notify("Export functionality coming soon", severity="information")
+
+    @on(Input.Changed, "#history-search")
+    def on_history_search(self, event: Input.Changed) -> None:
+        """Filter history table by search term."""
+        search_term = event.value.lower()
+        table = self.query_one("#history-table", DataTable)
+        table.clear()
+        table.add_columns(
+            "Date", "Strategy", "Symbol", "TF", "Return %", "Trades", "Win Rate", "Sharpe", "Actions"
+        )
+
+        runs = self.history.get_runs(limit=100)
+        filtered_runs = []
+
+        for run in runs:
+            # Filter by strategy name, symbol, or date
+            if (search_term in run.config.strategy_name.lower() or
+                search_term in run.config.symbol.lower() or
+                search_term in run.timestamp.lower()):
+
+                r = run.results
+                return_pct = r.get('total_return_pct', 0)
+                return_style = "green" if return_pct > 0 else "red"
+
+                table.add_row(
+                    run.timestamp[:16],
+                    run.config.strategy_name[:15],
+                    run.config.symbol,
+                    run.config.timeframe,
+                    f"[{return_style}]{return_pct:.2f}%[/{return_style}]",
+                    str(r.get("total_trades", 0)),
+                    f"{r.get('win_rate_pct', 0):.1f}%",
+                    f"{r.get('sharpe_ratio', 0):.2f}",
+                    "▶ 📊 💾",
+                )
+                filtered_runs.append(run)
+
+        # Update stored runs for quick actions
+        self._history_runs = filtered_runs
+
+    @on(Button.Pressed, "#btn-clear-search")
+    def on_clear_search(self) -> None:
+        """Clear search and show all results."""
+        try:
+            search_input = self.query_one("#history-search", Input)
+            search_input.value = ""
+            self._populate_history_table()
+        except Exception as e:
+            logger.debug(f"Failed to clear search: {e}")
 
     @on(DataTable.RowSelected, "#history-table")
     def on_history_row_selected(self, event: DataTable.RowSelected) -> None:
