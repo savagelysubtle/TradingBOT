@@ -1,8 +1,12 @@
 """Moving Average Crossover strategy."""
 
+import logging
+
 import pandas as pd
 
 from trading_bot.strategies.base import BaseStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class MovingAverageCrossover(BaseStrategy):
@@ -45,6 +49,10 @@ class MovingAverageCrossover(BaseStrategy):
         self.rsi_period = rsi_period
         self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
+        logger.info(
+            f"MovingAverageCrossover initialized: short={short_window}, long={long_window}, "
+            f"RSI={use_rsi} (period={rsi_period})"
+        )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[return]
         """Generate trading signals.
@@ -55,6 +63,7 @@ class MovingAverageCrossover(BaseStrategy):
         Returns:
             DataFrame with signals added
         """
+        logger.debug(f"Generating signals for {len(data)} data points")
         df = data.copy()
 
         # Calculate moving averages
@@ -84,14 +93,20 @@ class MovingAverageCrossover(BaseStrategy):
                 | (df["rsi"].shift(1) < self.rsi_oversold)
             )
 
+        buy_signals = buy_condition.sum()
         df.loc[buy_condition, "signal"] = 1
+        if buy_signals > 0:
+            logger.debug(f"Generated {buy_signals} BUY signals")
 
         # Generate sell signals (short MA crosses below long MA)
-        df.loc[
+        sell_condition = (
             (df["ma_short"] < df["ma_long"])
-            & (df["ma_short"].shift(1) >= df["ma_long"].shift(1)),
-            "signal",
-        ] = -1
+            & (df["ma_short"].shift(1) >= df["ma_long"].shift(1))
+        )
+        sell_signals = sell_condition.sum()
+        df.loc[sell_condition, "signal"] = -1
+        if sell_signals > 0:
+            logger.debug(f"Generated {sell_signals} SELL signals")
 
         # Also sell if RSI is overbought and we're in a position
         if self.use_rsi:
@@ -99,8 +114,13 @@ class MovingAverageCrossover(BaseStrategy):
                 (df["rsi"] > self.rsi_overbought)
                 & (df["ma_short"] < df["ma_long"])
             )
+            rsi_sell_signals = sell_rsi_condition.sum()
             df.loc[sell_rsi_condition, "signal"] = -1
+            if rsi_sell_signals > 0:
+                logger.debug(f"Generated {rsi_sell_signals} RSI-based SELL signals")
 
+        total_signals = (df["signal"] != 0).sum()
+        logger.info(f"Signal generation complete: {total_signals} total signals ({buy_signals} buy, {sell_signals + rsi_sell_signals if self.use_rsi else sell_signals} sell)")
         return df
 
     def calculate_position_size(
@@ -119,6 +139,7 @@ class MovingAverageCrossover(BaseStrategy):
         Returns:
             Position size (number of shares)
         """
+        logger.debug(f"Calculating position size: price=${price:.2f}, account=${account_value:.2f}, risk={risk_per_trade:.1%}")
         risk_amount = account_value * risk_per_trade
         # Assume 2% stop loss
         stop_loss_pct = 0.02
@@ -126,11 +147,14 @@ class MovingAverageCrossover(BaseStrategy):
         risk_per_share = price - stop_loss_price
 
         if risk_per_share <= 0:
+            logger.warning(f"Invalid risk_per_share: {risk_per_share}, returning 0")
             return 0.0
 
         position_size = risk_amount / risk_per_share
         max_position_value = account_value * 0.1  # Max 10% of account
         max_shares = max_position_value / price
 
-        return min(position_size, max_shares)
+        final_size = min(position_size, max_shares)
+        logger.debug(f"Position size calculated: {final_size:.4f} shares (risk=${risk_amount:.2f}, max=${max_position_value:.2f})")
+        return final_size
 

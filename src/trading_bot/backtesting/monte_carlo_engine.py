@@ -3,28 +3,36 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 # Try to import CuPy for GPU acceleration, fallback to NumPy
-# Note: CuPy wheels are not available for Python 3.14 yet (only up to 3.13)
 # The code will automatically fall back to NumPy if CuPy is not available
+# Supports CUDA 13.x (cupy-cuda13x), 12.x (cupy-cuda12x), or 11.x (cupy-cuda11x)
 try:
     import cupy as cp
 
     CUPY_AVAILABLE = True
     logger_gpu = logging.getLogger(__name__)
-    logger_gpu.info("CuPy available - using GPU acceleration for Monte Carlo simulations")
+    # Try to detect CUDA version
+    try:
+        cuda_version = cp.cuda.runtime.runtimeGetVersion()
+        major_version = cuda_version // 1000
+        minor_version = (cuda_version % 1000) // 10
+        logger_gpu.info(
+            f"CuPy available - using GPU acceleration for Monte Carlo simulations "
+            f"(CUDA {major_version}.{minor_version})"
+        )
+    except Exception:
+        logger_gpu.info("CuPy available - using GPU acceleration for Monte Carlo simulations")
 except ImportError:
     cp = np  # Fallback to NumPy if CuPy not available
     CUPY_AVAILABLE = False
     logger_gpu = logging.getLogger(__name__)
     logger_gpu.warning(
         "CuPy not available - using CPU (NumPy) for Monte Carlo simulations. "
-        "Note: CuPy wheels are not available for Python 3.14 yet (only up to 3.13). "
-        "For GPU acceleration, use Python 3.13 or install CuPy manually."
+        "Install with: uv add cupy-cuda13x"
     )
 
 from trading_bot.backtesting.engine import BacktestEngine
@@ -42,7 +50,7 @@ class MonteCarloEngine:
         commission: float = 0.001,
         slippage: float = 0.0005,
         n_simulations: int = 1000,
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
     ):
         """Initialize Monte Carlo engine.
 
@@ -130,7 +138,9 @@ class MonteCarloEngine:
             # Randomly sample indices with replacement (GPU-accelerated if available)
             if CUPY_AVAILABLE:
                 sampled_indices_gpu = cp.random.choice(data_length, size=data_length, replace=True)
-                sampled_indices = cp.asnumpy(sampled_indices_gpu)  # Convert back to NumPy for pandas
+                sampled_indices = cp.asnumpy(
+                    sampled_indices_gpu
+                )  # Convert back to NumPy for pandas
             else:
                 sampled_indices = np.random.choice(data_length, size=data_length, replace=True)
             sampled_data = data.iloc[sampled_indices].copy()
@@ -249,6 +259,7 @@ class MonteCarloEngine:
         # Shuffle sell trades (preserving buy-sell pairing logic)
         # Note: Python list shuffle doesn't benefit from GPU, but we keep it here for consistency
         import random
+
         random.shuffle(sell_trades)
 
         # Calculate metrics from shuffled trades
@@ -515,7 +526,9 @@ class MonteCarloEngine:
 
             f.write("System Information\n")
             f.write(f"{'-' * 50}\n")
-            f.write(f"GPU Accelerated: {'Yes (CuPy)' if results.get('gpu_accelerated', False) else 'No (CPU/NumPy)'}\n")
+            f.write(
+                f"GPU Accelerated: {'Yes (CuPy)' if results.get('gpu_accelerated', False) else 'No (CPU/NumPy)'}\n"
+            )
 
         # Save detailed results
         detailed_df = pd.DataFrame(

@@ -1,14 +1,20 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## Project Overview
 
-This is a **comprehensive algorithmic cryptocurrency and stock trading bot** built with Python 3.14, featuring advanced backtesting, live trading capabilities, and multi-threading support using Python's free-threading (no GIL).
+This is a **comprehensive algorithmic cryptocurrency and stock trading bot**
+built with Python 3.13.4+ or 3.14+, featuring advanced backtesting, live trading
+capabilities, and multi-threading support using Python's free-threading (no GIL
+on 3.14+).
 
-**Version**: 0.1.0
-**License**: MIT
-**Python**: 3.14+ (required for free-threading)
+**Version**: 0.1.0 **License**: MIT **Python**: 3.13.4+ or 3.14+ (dual mode
+support)
+
+- **3.14+**: Free-threading for true parallelism
+- **3.13.4+**: GPU acceleration support (CuPy/CUDA)
 
 ## Technology Stack
 
@@ -28,24 +34,31 @@ This is a **comprehensive algorithmic cryptocurrency and stock trading bot** bui
 ### Installation
 
 ```bash
-# Install dependencies (must have TA-Lib C library installed first - see INSTALLATION.md)
-uv sync
+# Install dependencies with Python 3.14 (free-threading mode)
+# Must have TA-Lib C library installed first - see INSTALLATION.md
+uv sync --python 3.14 --prerelease=allow
 
-# Install with optional dependencies
-uv sync --extra ta-lib      # TA-Lib wrapper
-uv sync --extra vectorbt    # VectorBT backtesting
-uv sync --extra ml          # Machine learning strategies
-uv sync --extra portfolio   # Portfolio optimization
+# Install with Python 3.13.4 (GPU acceleration mode)
+# Note: CuPy doesn't support Python 3.14 yet, use 3.13.4 for GPU support
+uv sync --extra gpu --python 3.13.4 --prerelease=allow
+
+# Monte Carlo simulations:
+# - Python 3.14: CPU-only (no GPU acceleration)
+# - Python 3.13.4: GPU-accelerated with CuPy/CUDA (10-100x faster)
 ```
 
 ### Running the Application
 
 ```bash
-# Launch TUI (Text User Interface)
+# Launch TUI (Text User Interface) - Python 3.14 (free-threading)
 uv run --python 3.14 tui
+# Or Python 3.13.4 (GPU acceleration)
+uv run --python 3.13.4 tui
 
 # Or run CLI directly
 uv run --python 3.14 trading-bot --help
+# Or with Python 3.13.4
+uv run --python 3.13.4 trading-bot --help
 
 # Backtest a strategy
 uv run --python 3.14 trading-bot backtest --symbol BTC/USDT --exchange binance --strategy talib_ma
@@ -57,7 +70,10 @@ uv run --python 3.14 trading-bot backtest --symbol BTC/USDT --engine custom
 uv run --python 3.14 trading-bot backtest --symbol BTC/USDT --engine vectorbt
 
 # Monte Carlo simulation (1000 simulations)
+# Python 3.14: CPU-only
 uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --exchange binance --strategy talib_ma
+# Python 3.13.4: GPU-accelerated (10-100x faster)
+uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --exchange binance --strategy talib_ma
 
 # Monte Carlo with different methods
 uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --method bootstrap -n 1000
@@ -148,11 +164,16 @@ ty check
 ### Key Components
 
 **User Interfaces** ([interfaces/](src/trading_bot/interfaces/))
-- `CLI` ([cli.py](src/trading_bot/interfaces/cli.py)): Command-line interface with Click
-- `TUI` ([tui.py](src/trading_bot/interfaces/tui.py)): Interactive terminal UI with Textual
-- `TUI Widgets` ([tui_widgets.py](src/trading_bot/interfaces/tui_widgets.py)): Reusable TUI components
+
+- `CLI` ([cli.py](src/trading_bot/interfaces/cli.py)): Command-line interface
+  with Click
+- `TUI` ([tui.py](src/trading_bot/interfaces/tui.py)): Interactive terminal UI
+  with Textual
+- `TUI Widgets` ([tui_widgets.py](src/trading_bot/interfaces/tui_widgets.py)):
+  Reusable TUI components
 
 **TradingBot** ([bot.py](src/trading_bot/bot.py))
+
 - Central orchestrator class
 - Initializes data fetchers based on configuration
 - Selects appropriate backtesting engine
@@ -160,11 +181,13 @@ ty check
 - Coordinates strategy execution
 
 **Data Fetchers** ([data/](src/trading_bot/data/))
+
 - `CCXTDataFetcher`: Fetches cryptocurrency OHLCV data from 100+ exchanges
 - `DataFetcher`: Fetches stock data via yfinance
 - `WebSocketFetcher`: Real-time data streaming (<50ms latency)
 
 **Strategies** ([strategies/](src/trading_bot/strategies/))
+
 - All inherit from `BaseStrategy` abstract class
 - `MovingAverageCrossover`: Pandas-based MA crossover
 - `TALibMovingAverageCrossover`: TA-Lib SMA/EMA crossover with RSI filter
@@ -173,23 +196,29 @@ ty check
 - `MLStrategy`: scikit-learn RandomForest/XGBoost
 
 **Backtesting Engines** ([backtesting/](src/trading_bot/backtesting/))
+
 - `BacktestEngine`: Pure Python, most flexible (~1-10 candles/sec)
 - `BacktraderEngine`: Professional framework (~10-100 candles/sec)
 - `VectorBTEngine`: Ultra-fast vectorized, 10-100x faster
-- `MonteCarloEngine`: Statistical simulation for risk analysis and strategy robustness
+- `MonteCarloEngine`: Statistical simulation for risk analysis and strategy
+  robustness
 
 **Broker Interfaces** ([broker/](src/trading_bot/broker/))
+
 - All inherit from `BaseBroker`
 - `PaperBroker`: Simulates trading without real money
 - `CCXTBroker`: Live trading via CCXT with sandbox mode support
 
 **Configuration** ([config.py](src/trading_bot/config.py))
+
 - Uses Pydantic for validation
 - `TradingConfig`: Main settings (from .env file)
 - `BacktestConfiguration`: Backtest template management
 - `BacktestHistory`: History tracking and persistence
 
-**Multi-Threading** ([utils/multithreading.py](src/trading_bot/utils/multithreading.py))
+**Multi-Threading**
+([utils/multithreading.py](src/trading_bot/utils/multithreading.py))
+
 - Python 3.14 free-threading utilities
 - `parallel_fetch_data()`: Concurrent data fetching
 - `parallel_backtest()`: Parallel strategy testing
@@ -259,6 +288,7 @@ class MyStrategy(BaseStrategy):
 ### Data Fetching
 
 **Cryptocurrency** (CCXT):
+
 ```python
 from trading_bot.data.ccxt_fetcher import CCXTDataFetcher
 
@@ -267,6 +297,7 @@ data = fetcher.fetch_ohlcv("BTC/USDT", timeframe="1d", limit=365)
 ```
 
 **Stocks** (yfinance):
+
 ```python
 from trading_bot.data.fetcher import DataFetcher
 
@@ -275,6 +306,7 @@ data = fetcher.fetch("AAPL", start_date="2023-01-01", end_date="2024-01-01")
 ```
 
 **Real-time WebSocket**:
+
 ```python
 from trading_bot.data.websocket_fetcher import WebSocketFetcher
 
@@ -282,9 +314,9 @@ fetcher = WebSocketFetcher(exchange_id="binance")
 await fetcher.subscribe(["BTC/USDT", "ETH/USDT"])
 ```
 
-### Python 3.14 Free-Threading
+### Python 3.14+ Free-Threading
 
-Leverage true parallelism without GIL:
+Leverage true parallelism without GIL (Python 3.14+ only):
 
 ```python
 from trading_bot.utils.multithreading import parallel_fetch_data, parallel_backtest
@@ -307,16 +339,26 @@ results = parallel_backtest(backtest_symbol, symbols, max_workers=4)
 
 ### Monte Carlo Simulation
 
-Monte Carlo simulation helps assess strategy robustness and risk by running hundreds/thousands of simulations with different scenarios:
+Monte Carlo simulation helps assess strategy robustness and risk by running
+hundreds/thousands of simulations with different scenarios.
+
+**GPU Acceleration Note:**
+
+- Python 3.14: CPU-only (CuPy doesn't support 3.14 yet)
+- Python 3.13.4 + `--extra gpu`: GPU-accelerated with CUDA (10-100x faster)
+- Automatically falls back to NumPy if CuPy unavailable
 
 **Three Simulation Methods:**
 
-1. **Bootstrap Resampling**: Randomly samples from historical data with replacement
+1. **Bootstrap Resampling**: Randomly samples from historical data with
+   replacement
+
    - Tests how strategy performs on different sequences of market data
    - Preserves statistical properties of original data
    - Best for: Understanding strategy sensitivity to data sequence
 
 2. **Shuffle Trades**: Randomizes the order of trades
+
    - Tests if trade sequence affects performance
    - Assumes individual trades are independent
    - Best for: Identifying sequence-dependent strategies
@@ -327,9 +369,13 @@ Monte Carlo simulation helps assess strategy robustness and risk by running hund
    - Best for: Stress testing under varying market conditions
 
 **CLI Usage:**
+
 ```bash
 # Basic Monte Carlo (1000 bootstrap simulations)
+# Python 3.14: CPU-only
 uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --strategy talib_ma
+# Python 3.13.4: GPU-accelerated (much faster)
+uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --strategy talib_ma
 
 # Specify method and number of simulations
 uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --method shuffle_trades -n 500
@@ -339,6 +385,7 @@ uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --seed 42 -n 1000
 ```
 
 **Python API:**
+
 ```python
 from trading_bot.backtesting.monte_carlo_engine import MonteCarloEngine
 from trading_bot.data.ccxt_fetcher import CCXTDataFetcher
@@ -377,6 +424,7 @@ plot_monte_carlo_results(results, show=True)
 ```
 
 **Key Metrics from Monte Carlo:**
+
 - **Probability of Profit**: Percentage of simulations with positive returns
 - **Sharpe Ratio**: Risk-adjusted return (mean / std dev)
 - **Value at Risk (VaR)**: 5th percentile return (95% confidence worst case)
@@ -385,6 +433,7 @@ plot_monte_carlo_results(results, show=True)
 - **Drawdown Statistics**: Mean, worst, distribution
 
 **Interpreting Results:**
+
 - Probability of Profit ≥ 70% = High confidence
 - Sharpe Ratio ≥ 1.0 = Good risk-adjusted returns
 - Worst Drawdown ≤ 20% = Acceptable risk
@@ -428,7 +477,7 @@ LOG_LEVEL=INFO
 - **Formatter**: Ruff (Black-compatible)
 - **Type Checker**: ty (Astral's fast type checker)
 - **Line Length**: 100 characters
-- **Target Version**: Python 3.14
+- **Target Versions**: Python 3.13.4+ or 3.14+ (dual mode support)
 - **Quote Style**: Double quotes
 - **Indent Style**: Spaces (4 spaces)
 
@@ -458,7 +507,8 @@ LOG_LEVEL=INFO
 
 - **Crypto symbols**: `BTC/USDT` (base/quote format)
 - **Stock symbols**: `AAPL` (ticker symbol)
-- **Timeframes**: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, `1w` (crypto) or `1d`, `1mo`, `1y` (stocks)
+- **Timeframes**: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, `1w` (crypto) or `1d`,
+  `1mo`, `1y` (stocks)
 
 ### Directory Structure
 
@@ -492,7 +542,9 @@ uv run python script.py
 
 ### Risk Warning
 
-⚠️ This is educational software. Trading involves substantial risk of loss. Always:
+⚠️ This is educational software. Trading involves substantial risk of loss.
+Always:
+
 - Test strategies thoroughly with backtesting
 - Start with paper trading (sandbox mode)
 - Use only capital you can afford to lose
@@ -500,10 +552,16 @@ uv run python script.py
 
 ## Key Entry Points
 
-- **CLI**: [src/trading_bot/interfaces/cli.py](src/trading_bot/interfaces/cli.py) - Command-line interface
-- **TUI**: [src/trading_bot/interfaces/tui.py](src/trading_bot/interfaces/tui.py) - Text User Interface
-- **Main Bot**: [src/trading_bot/bot.py](src/trading_bot/bot.py) - Main orchestrator
-- **Configuration**: [src/trading_bot/config.py](src/trading_bot/config.py) - Settings management
+- **CLI**:
+  [src/trading_bot/interfaces/cli.py](src/trading_bot/interfaces/cli.py) -
+  Command-line interface
+- **TUI**:
+  [src/trading_bot/interfaces/tui.py](src/trading_bot/interfaces/tui.py) - Text
+  User Interface
+- **Main Bot**: [src/trading_bot/bot.py](src/trading_bot/bot.py) - Main
+  orchestrator
+- **Configuration**: [src/trading_bot/config.py](src/trading_bot/config.py) -
+  Settings management
 
 ## Additional Documentation
 

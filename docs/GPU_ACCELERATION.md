@@ -1,19 +1,26 @@
 # GPU Acceleration with CuPy
 
-The Monte Carlo simulation engine now supports GPU acceleration using [CuPy](https://cupy.dev/), a NumPy-compatible library for GPU computing.
+The Monte Carlo simulation engine now supports GPU acceleration using
+[CuPy](https://cupy.dev/), a NumPy-compatible library for GPU computing.
 
 ## ⚠️ Python 3.14 Compatibility Note
 
-**CuPy 13.6.0 does not have wheels for Python 3.14 yet** (only supports up to Python 3.13). The Monte Carlo engine will automatically fall back to CPU (NumPy) on Python 3.14.
+**CuPy 13.6.0 does not have wheels for Python 3.14 yet** (only supports up to
+Python 3.13). The Monte Carlo engine will automatically fall back to CPU (NumPy)
+on Python 3.14.
 
 **Options:**
+
 1. **Use Python 3.13** for GPU acceleration (recommended)
-2. **Wait for CuPy to release Python 3.14 wheels** (check [CuPy releases](https://github.com/cupy/cupy/releases))
+2. **Wait for CuPy to release Python 3.14 wheels** (check
+   [CuPy releases](https://github.com/cupy/cupy/releases))
 3. **Build CuPy from source** (advanced, not recommended)
 
 ## Overview
 
-CuPy provides a drop-in replacement for NumPy that runs on NVIDIA CUDA GPUs, offering significant speedups for Monte Carlo simulations (often 10-100x faster depending on GPU and problem size).
+CuPy provides a drop-in replacement for NumPy that runs on NVIDIA CUDA GPUs,
+offering significant speedups for Monte Carlo simulations (often 10-100x faster
+depending on GPU and problem size).
 
 ## Installation
 
@@ -29,7 +36,9 @@ uv pip install cupy-cuda12x
 
 ### For Python 3.14
 
-CuPy is **not available** for Python 3.14 yet. The code will automatically use CPU (NumPy) instead. No action needed - GPU acceleration will be enabled automatically when CuPy releases Python 3.14 wheels.
+CuPy is **not available** for Python 3.14 yet. The code will automatically use
+CPU (NumPy) instead. No action needed - GPU acceleration will be enabled
+automatically when CuPy releases Python 3.14 wheels.
 
 ### Other CUDA Versions
 
@@ -37,13 +46,15 @@ CuPy is **not available** for Python 3.14 yet. The code will automatically use C
 - **CUDA 13.x**: `uv pip install cupy-cuda13x`
 - **ROCm (AMD)**: `uv pip install cupy-rocm-5-0` (experimental)
 
-See [CuPy Installation Guide](https://docs.cupy.dev/en/stable/install.html) for details.
+See [CuPy Installation Guide](https://docs.cupy.dev/en/stable/install.html) for
+details.
 
 ## Requirements
 
 - **NVIDIA GPU** with CUDA support (CUDA 11.2+ or 12.x)
 - **CUDA Toolkit** installed on your system
-- **Python 3.13 or earlier** for GPU acceleration (Python 3.14 falls back to CPU)
+- **Python 3.13 or earlier** for GPU acceleration (Python 3.14 falls back to
+  CPU)
 
 ### Checking GPU Availability
 
@@ -59,12 +70,14 @@ except ImportError:
 ## Automatic Fallback
 
 The Monte Carlo engine **automatically falls back to CPU (NumPy)** if:
+
 - CuPy is not installed
 - Python 3.14 is used (no wheels available yet)
 - No GPU is available
 - CUDA is not properly configured
 
 You'll see a log message indicating which backend is being used:
+
 - `"CuPy available - using GPU acceleration for Monte Carlo simulations"`
 - `"CuPy not available - using CPU (NumPy) for Monte Carlo simulations"`
 
@@ -73,16 +86,17 @@ You'll see a log message indicating which backend is being used:
 ### Typical Speedups (Python 3.13 or earlier)
 
 | Simulations | CPU Time | GPU Time (RTX 3090) | Speedup |
-|-------------|----------|---------------------|---------|
+| ----------- | -------- | ------------------- | ------- |
 | 1,000       | ~30s     | ~3s                 | 10x     |
 | 10,000      | ~5min    | ~20s                | 15x     |
 | 100,000     | ~50min   | ~3min               | 17x     |
 
-*Actual performance depends on GPU model, data size, and simulation complexity*
+_Actual performance depends on GPU model, data size, and simulation complexity_
 
 ### What's Accelerated
 
 **GPU-Accelerated Operations:**
+
 - ✅ Random number generation (`cp.random.choice`, `cp.random.normal`)
 - ✅ Statistical calculations (mean, median, std, percentiles)
 - ✅ Array operations (sorting, indexing)
@@ -90,13 +104,15 @@ You'll see a log message indicating which backend is being used:
 - ✅ Synthetic return generation
 
 **Still CPU-Based:**
+
 - ⚠️ Pandas DataFrame operations (converted to NumPy/CuPy arrays)
 - ⚠️ Backtest engine execution (runs on CPU)
 - ⚠️ File I/O and result saving
 
 ## Usage
 
-No code changes needed! The Monte Carlo engine automatically uses GPU if available:
+No code changes needed! The Monte Carlo engine automatically uses GPU if
+available:
 
 ```python
 from trading_bot.backtesting.monte_carlo_engine import MonteCarloEngine
@@ -130,6 +146,7 @@ print(f"GPU Accelerated: {results['gpu_accelerated']}")
 ### Memory Management
 
 CuPy automatically manages GPU memory. For very large simulations:
+
 - Monitor GPU memory usage
 - Consider reducing `n_simulations` or processing in batches
 - Use `cp.get_default_memory_pool().free_all_blocks()` to free memory if needed
@@ -138,9 +155,11 @@ CuPy automatically manages GPU memory. For very large simulations:
 
 ### "CuPy not available" (Python 3.14)
 
-**Expected**: CuPy wheels are not available for Python 3.14 yet. The code automatically falls back to CPU (NumPy).
+**Expected**: CuPy wheels are not available for Python 3.14 yet. The code
+automatically falls back to CPU (NumPy).
 
 **Solutions**:
+
 1. **Use Python 3.13** for GPU acceleration (recommended)
 2. Wait for CuPy to release Python 3.14 wheels
 3. Build CuPy from source (advanced)
@@ -148,6 +167,7 @@ CuPy automatically manages GPU memory. For very large simulations:
 ### "CUDA out of memory"
 
 **Solutions**:
+
 1. Reduce `n_simulations` (e.g., 1000 instead of 10000)
 2. Process simulations in batches
 3. Use CPU fallback (uninstall CuPy or use Python 3.14)
@@ -155,6 +175,7 @@ CuPy automatically manages GPU memory. For very large simulations:
 ### "No CUDA-capable device"
 
 **Solution**:
+
 - Verify NVIDIA GPU is installed
 - Check CUDA installation: `nvidia-smi`
 - Install appropriate CuPy version for your CUDA version
@@ -162,12 +183,14 @@ CuPy automatically manages GPU memory. For very large simulations:
 ### Performance Not Improved
 
 **Possible Causes**:
+
 - Small number of simulations (< 1000) - GPU overhead may outweigh benefits
 - Data transfer overhead (CPU ↔ GPU) dominates computation
 - GPU is older/slower than expected
 - Using Python 3.14 (no GPU acceleration available)
 
 **Solution**: GPU acceleration is most beneficial for:
+
 - Large simulations (1000+)
 - Complex statistical calculations
 - Multiple simulations in batch
@@ -183,6 +206,7 @@ print(f"GPU Used: {results['gpu_accelerated']}")
 ```
 
 Results summary also shows GPU status:
+
 ```
 System Information
 --------------------------------------------------
@@ -190,6 +214,7 @@ GPU Accelerated: Yes (CuPy)
 ```
 
 Or on Python 3.14:
+
 ```
 System Information
 --------------------------------------------------
@@ -199,23 +224,26 @@ GPU Accelerated: No (CPU/NumPy)
 ## Python Version Compatibility
 
 | Python Version | CuPy Support | GPU Acceleration |
-|----------------|--------------|------------------|
+| -------------- | ------------ | ---------------- |
 | 3.9 - 3.13     | ✅ Yes       | ✅ Available     |
 | 3.14           | ❌ No wheels | ⚠️ CPU fallback  |
 
-**Recommendation**: Use Python 3.13 for GPU acceleration until CuPy releases Python 3.14 wheels.
+**Recommendation**: Use Python 3.13 for GPU acceleration until CuPy releases
+Python 3.14 wheels.
 
 ## References
 
 - [CuPy Documentation](https://docs.cupy.dev/)
 - [CuPy GitHub](https://github.com/cupy/cupy)
-- [CuPy Releases](https://github.com/cupy/cupy/releases) - Check for Python 3.14 support
+- [CuPy Releases](https://github.com/cupy/cupy/releases) - Check for Python 3.14
+  support
 - [CUDA Installation Guide](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
 - [NumPy vs CuPy Performance](https://docs.cupy.dev/en/stable/user_guide/basic.html)
 
 ## Future Enhancements
 
 Potential improvements:
+
 - Batch processing for very large simulations
 - Multi-GPU support
 - GPU-accelerated backtest engine

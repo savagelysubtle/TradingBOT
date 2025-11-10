@@ -1,8 +1,168 @@
 """Advanced risk management using Kelly Criterion and dynamic position sizing."""
 
+from dataclasses import dataclass
+from typing import List
+
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class KellyMetrics:
+    """Store historical trade metrics for Kelly Criterion calculation."""
+
+    win_rate: float  # 0.0 to 1.0
+    avg_win_pct: float  # Average win as % of risk
+    avg_loss_pct: float  # Average loss as % of risk (positive value)
+    total_trades: int
+    reward_risk_ratio: float  # avg_win / avg_loss
+
+
+def kelly_criterion(win_rate: float, reward_risk_ratio: float) -> float:
+    """Calculate Kelly fraction for position sizing.
+
+    Args:
+        win_rate: Probability of winning (0.0-1.0)
+        reward_risk_ratio: Average win / Average loss
+
+    Returns:
+        Kelly fraction as decimal (0.0-1.0)
+
+    Example:
+        >>> kelly_criterion(0.60, 1.5)
+        0.4  # Risk 40% per trade at full Kelly
+    """
+    if win_rate <= 0 or reward_risk_ratio <= 0:
+        return 0.0
+
+    kelly = (win_rate * reward_risk_ratio - (1 - win_rate)) / reward_risk_ratio
+    return max(0.0, kelly)
+
+
+def fractional_kelly(kelly_fraction: float, fraction: float = 0.5) -> float:
+    """Apply fractional Kelly for safety.
+
+    Args:
+        kelly_fraction: Full Kelly fraction
+        fraction: What fraction of Kelly to use
+            - 0.25 = Quarter Kelly (safest)
+            - 0.50 = Half Kelly (recommended)
+            - 0.75 = Three-Quarter Kelly
+            - 1.00 = Full Kelly (aggressive)
+
+    Returns:
+        Adjusted Kelly fraction
+    """
+    return kelly_fraction * fraction
+
+
+def kelly_to_position_units(
+    account_balance: float,
+    kelly_fraction: float,
+    entry_price: float,
+    stop_loss_price: float,
+) -> float:
+    """Convert Kelly fraction to position size (units).
+
+    Args:
+        account_balance: Total account value
+        kelly_fraction: Kelly % to risk (e.g., 0.20 for 20%)
+        entry_price: Trade entry price
+        stop_loss_price: Stop-loss price level
+
+    Returns:
+        Position size (number of units)
+    """
+    risk_dollars = account_balance * kelly_fraction
+    price_risk = abs(entry_price - stop_loss_price)
+    return risk_dollars / price_risk if price_risk > 0 else 0.0
+
+
+def calculate_metrics_from_backtest(trades: List[dict]) -> KellyMetrics:
+    """Extract Kelly-ready metrics from backtest results.
+
+    Args:
+        trades: List of trade dicts with 'pnl', 'entry', 'exit', 'stop_loss' or similar
+
+    Returns:
+        KellyMetrics object with calculated metrics
+    """
+    if not trades:
+        return KellyMetrics(0.0, 0.0, 0.0, 0, 1.0)
+
+    # Identify winning and losing trades
+    # Handle different trade formats
+    wins = []
+    losses = []
+
+    for trade in trades:
+        pnl = trade.get("pnl", 0.0)
+        if isinstance(pnl, (int, float)):
+            if pnl > 0:
+                wins.append(trade)
+            elif pnl < 0:
+                losses.append(trade)
+
+    total = len(trades)
+    win_rate = len(wins) / total if total > 0 else 0.0
+
+    # Calculate average win/loss
+    # Try to get as percentage of risk, otherwise use absolute values
+    if wins:
+        win_values = [abs(t.get("pnl", 0.0)) for t in wins]
+        avg_win = sum(win_values) / len(win_values) if win_values else 0.0
+    else:
+        avg_win = 0.0
+
+    if losses:
+        loss_values = [abs(t.get("pnl", 0.0)) for t in losses]
+        avg_loss = sum(loss_values) / len(loss_values) if loss_values else 1.0
+    else:
+        avg_loss = 1.0  # Default to avoid division by zero
+
+    # Calculate reward/risk ratio
+    reward_risk_ratio = avg_win / avg_loss if avg_loss > 0 else 1.0
+
+    return KellyMetrics(
+        win_rate=win_rate,
+        avg_win_pct=avg_win,
+        avg_loss_pct=avg_loss,
+        total_trades=total,
+        reward_risk_ratio=reward_risk_ratio,
+    )
+
+
+def validate_kelly_parameters(metrics: KellyMetrics, kelly_fraction: float) -> List[str]:
+    """Validate Kelly calculation is safe.
+
+    Args:
+        metrics: Kelly metrics from backtest
+        kelly_fraction: Fraction of Kelly being used
+
+    Returns:
+        List of warning messages (empty if all checks pass)
+    """
+    warnings: List[str] = []
+
+    # Check sufficient data
+    if metrics.total_trades < 20:
+        warnings.append("⚠️  Less than 20 trades: Kelly unreliable")
+
+    # Check positive edge
+    kelly_full = kelly_criterion(metrics.win_rate, metrics.reward_risk_ratio)
+    if kelly_full <= 0:
+        warnings.append("⚠️  No positive edge detected (Kelly ≤ 0)")
+
+    # Check for overfitting
+    if metrics.win_rate > 0.75:
+        warnings.append("⚠️  Suspiciously high win rate (>75%): Possible overfitting")
+
+    # Check using fractional Kelly
+    if kelly_fraction > 0.75:
+        warnings.append("⚠️  Using more than 75% Kelly: High drawdown risk")
+
+    return warnings
 
 
 class AdvancedRiskManager:
@@ -37,16 +197,17 @@ class AdvancedRiskManager:
         if avg_loss == 0 or win_rate <= 0:
             return 0.0
 
-        # Kelly formula: f = (p * b - q) / b
-        # where p = win rate, q = loss rate, b = avg_win/avg_loss
-        b = abs(avg_win / avg_loss)
-        q = 1 - win_rate
-        kelly = (win_rate * b - q) / b
+        # Calculate reward/risk ratio
+        reward_risk_ratio = abs(avg_win / avg_loss)
 
-        # Use fractional Kelly for safety (1/4 Kelly is conservative)
-        fractional_kelly = max(0.0, min(kelly * self.kelly_fraction, self.max_risk))
+        # Use the standalone kelly_criterion function
+        kelly_full = kelly_criterion(win_rate, reward_risk_ratio)
 
-        return fractional_kelly
+        # Apply fractional Kelly and cap at max_risk
+        kelly_adjusted = fractional_kelly(kelly_full, self.kelly_fraction)
+        kelly_adjusted = max(0.0, min(kelly_adjusted, self.max_risk))
+
+        return kelly_adjusted
 
     def calculate_position_size(
         self,
@@ -166,3 +327,18 @@ class AdvancedRiskManager:
             Maximum position value
         """
         return account_value * max_position_pct
+
+    def calculate_kelly_from_metrics(self, metrics: KellyMetrics) -> float:
+        """Calculate Kelly position size from KellyMetrics.
+
+        Args:
+            metrics: Kelly metrics from backtest
+
+        Returns:
+            Kelly position size as fraction of capital
+        """
+        return self.calculate_kelly_position(
+            metrics.win_rate,
+            metrics.avg_win_pct,
+            metrics.avg_loss_pct,
+        )

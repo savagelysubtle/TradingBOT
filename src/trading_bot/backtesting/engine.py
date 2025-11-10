@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from trading_bot.risk.kelly_criterion import (
+    calculate_metrics_from_backtest,
+    fractional_kelly,
+    kelly_criterion,
+)
 from trading_bot.strategies.base import BaseStrategy
 
 logger = logging.getLogger(__name__)
@@ -158,6 +163,12 @@ class BacktestEngine:
         ) / portfolio_df["cummax"]
         max_drawdown = portfolio_df["drawdown"].min()
 
+        # Calculate Kelly Criterion metrics
+        kelly_metrics = calculate_metrics_from_backtest(sell_trades)
+        kelly_full = kelly_criterion(kelly_metrics.win_rate, kelly_metrics.reward_risk_ratio)
+        kelly_half = fractional_kelly(kelly_full, 0.5)
+        kelly_quarter = fractional_kelly(kelly_full, 0.25)
+
         results = {
             "strategy": strategy.name,
             "symbol": symbol,
@@ -179,6 +190,17 @@ class BacktestEngine:
             "max_drawdown_pct": max_drawdown * 100,
             "trades": trades,
             "portfolio_history": portfolio_history,
+            # Kelly Criterion metrics
+            "kelly_metrics": {
+                "win_rate": kelly_metrics.win_rate,
+                "avg_win_pct": kelly_metrics.avg_win_pct,
+                "avg_loss_pct": kelly_metrics.avg_loss_pct,
+                "reward_risk_ratio": kelly_metrics.reward_risk_ratio,
+                "total_trades": kelly_metrics.total_trades,
+                "full_kelly": kelly_full,
+                "half_kelly": kelly_half,
+                "quarter_kelly": kelly_quarter,
+            },
         }
 
         logger.info(

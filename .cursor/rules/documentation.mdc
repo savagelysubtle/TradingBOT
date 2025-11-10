@@ -8,24 +8,26 @@ description: Documentation standards and organization
 ## Documentation Structure
 
 - **User Guides**: Installation, Quick Start, TUI Guide, Live Data Guide
-- **Summary Documents**: Located in `docs/@docs/` directory
+- **Summary Documents**: Located in `docs/<category>/` directory
 - **Main README**: [README.md](mdc:README.md) - Project overview and features
 
 ## Summary Documents Location
 
-All summary and planning documents should be placed in `docs/@docs/`:
+All summary and planning documents should be placed in `docs/<category>/`:
 
-- `docs/@docs/UPGRADE_SUMMARY.md` - Major upgrades and improvements
-- `docs/@docs/TUI_UX_IMPROVEMENT_PLAN.md` - TUI UX analysis and roadmap
+- `docs/<category>/UPGRADE_SUMMARY.md` - Major upgrades and improvements
+- `docs/<category>/TUI_UX_IMPROVEMENT_PLAN.md` - TUI UX analysis and roadmap
 
 ## Documentation Files
 
 - [docs/INSTALLATION.md](mdc:docs/INSTALLATION.md) - Installation instructions
-- [docs/INSTALL_WINDOWS.md](mdc:docs/INSTALL_WINDOWS.md) - Windows-specific installation
+- [docs/INSTALL_WINDOWS.md](mdc:docs/INSTALL_WINDOWS.md) - Windows-specific
+  installation
 - [docs/QUICKSTART.md](mdc:docs/QUICKSTART.md) - Quick start guide
 - [docs/QUICK_START.md](mdc:docs/QUICK_START.md) - Alternative quick start
 - [docs/TUI_GUIDE.md](mdc:docs/TUI_GUIDE.md) - TUI usage guide
-- [docs/LIVE_DATA_GUIDE.md](mdc:docs/LIVE_DATA_GUIDE.md) - Live data streaming guide
+- [docs/LIVE_DATA_GUIDE.md](mdc:docs/LIVE_DATA_GUIDE.md) - Live data streaming
+  guide
 - [docs/UV_USAGE.md](mdc:docs/UV_USAGE.md) - UV package manager usage
 
 ## Writing Documentation

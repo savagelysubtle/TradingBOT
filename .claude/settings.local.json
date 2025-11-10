@@ -6,7 +6,9 @@
       "Bash(uv sync:*)",
       "Bash(.venvScriptspython.exe --version)",
       "Bash(uv run:*)",
-      "Bash(uv pip install:*)"
+      "Bash(uv pip install:*)",
+      "Bash(\"d:\\Coding\\TradingBOT\\docs\\GPU_ACCELERATION.md\")",
+      "Bash(uv python list)"
     ],
     "deny": [],
     "ask": []

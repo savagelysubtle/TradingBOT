@@ -2,6 +2,8 @@
 
 from trading_bot.strategies.base import BaseStrategy
 from trading_bot.strategies.moving_average import MovingAverageCrossover
+from trading_bot.strategies.stop_hunt_strategy import StopHuntStrategy
+from trading_bot.strategies.strategy_registry import StrategyRegistry
 
 # Try to import TA-Lib strategies (optional dependency)
 try:
@@ -18,6 +20,8 @@ try:
     __all__ = [
         "BaseStrategy",
         "MovingAverageCrossover",
+        "StopHuntStrategy",
+        "StrategyRegistry",
         "TALibMovingAverageCrossover",
         "TALibMACDStrategy",
         "SupertrendStrategy",
@@ -29,6 +33,8 @@ except ImportError:
     __all__ = [
         "BaseStrategy",
         "MovingAverageCrossover",
+        "StopHuntStrategy",
+        "StrategyRegistry",
     ]
 
 # Try to import ML strategies (optional dependency)

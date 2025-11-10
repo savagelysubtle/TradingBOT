@@ -60,14 +60,19 @@ class TradingConfig(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize configuration and create directories."""
         super().__init__(**kwargs)
+        logger.debug(f"Initializing TradingConfig: exchange={self.exchange_id}, data_provider={self.data_provider}, backtest_engine={self.backtest_engine}")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Configuration initialized: data_dir={self.data_dir}, results_dir={self.results_dir}, log_file={self.log_file}")
 
 
 def load_config() -> TradingConfig:
     """Load trading configuration from environment."""
-    return TradingConfig()
+    logger.info("Loading configuration from environment")
+    config = TradingConfig()
+    logger.info(f"Configuration loaded successfully: exchange={config.exchange_id}, initial_capital=${config.initial_capital:,.2f}")
+    return config
 
 
 @dataclass
@@ -103,10 +108,12 @@ class BacktestConfiguration:
         """Initialize defaults."""
         if self.strategy_params is None:
             self.strategy_params = {"short_window": 50, "long_window": 200}
+            logger.debug("BacktestConfiguration: Using default strategy parameters")
         if not self.created_at:
             self.created_at = datetime.now().isoformat()
         if not self.last_modified:
             self.last_modified = self.created_at
+        logger.debug(f"BacktestConfiguration initialized: {self.get_display_name()}")
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -119,17 +126,26 @@ class BacktestConfiguration:
 
     def save(self, path: Path) -> None:
         """Save configuration to JSON file."""
+        logger.debug(f"Saving BacktestConfiguration to {path}")
         self.last_modified = datetime.now().isoformat()
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
+        logger.info(f"BacktestConfiguration saved to {path}")
 
     @classmethod
     def load(cls, path: Path) -> BacktestConfiguration:
         """Load configuration from JSON file."""
-        with open(path) as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+        logger.debug(f"Loading BacktestConfiguration from {path}")
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            config = cls.from_dict(data)
+            logger.info(f"BacktestConfiguration loaded from {path}")
+            return config
+        except Exception as e:
+            logger.error(f"Failed to load BacktestConfiguration from {path}: {e}")
+            raise
 
     def update(self, **kwargs) -> None:
         """Update configuration fields."""
@@ -221,52 +237,71 @@ class BacktestHistory:
         self.history_file = self.storage_dir / "backtest_history.json"
         self.templates_dir = self.storage_dir / "templates"
         self.templates_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"BacktestHistory initialized: storage_dir={self.storage_dir}")
 
     def add_run(self, run: BacktestRun) -> None:
         """Add a backtest run to history."""
+        logger.debug(f"Adding backtest run to history: {run.id} - {run.config.get_display_name()}")
         history = self._load_history()
         history["runs"].insert(0, run.to_dict())  # Most recent first
         # Keep last 100 runs
         history["runs"] = history["runs"][:100]
         self._save_history(history)
+        logger.info(f"Backtest run added to history: {run.id} (total runs: {len(history['runs'])})")
 
     def get_runs(self, limit: int = 20) -> list[BacktestRun]:
         """Get recent backtest runs."""
+        logger.debug(f"Retrieving {limit} recent backtest runs")
         history = self._load_history()
-        return [BacktestRun.from_dict(r) for r in history["runs"][:limit]]
+        runs = [BacktestRun.from_dict(r) for r in history["runs"][:limit]]
+        logger.info(f"Retrieved {len(runs)} backtest runs")
+        return runs
 
     def save_template(self, config: BacktestConfiguration) -> None:
         """Save a configuration as a template."""
         if not config.name:
             config.name = config.get_display_name()
         template_file = self.templates_dir / f"{config.name}.json"
+        logger.debug(f"Saving template: {config.name} to {template_file}")
         config.save(template_file)
+        logger.info(f"Template saved: {config.name}")
 
     def get_templates(self) -> list[BacktestConfiguration]:
         """Get all saved templates."""
+        logger.debug("Retrieving all saved templates")
         templates = []
         for template_file in self.templates_dir.glob("*.json"):
             try:
                 templates.append(BacktestConfiguration.load(template_file))
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to load template {template_file}: {e}")
                 continue
-        return sorted(templates, key=lambda t: t.last_modified, reverse=True)
+        sorted_templates = sorted(templates, key=lambda t: t.last_modified, reverse=True)
+        logger.info(f"Retrieved {len(sorted_templates)} templates")
+        return sorted_templates
 
     def delete_template(self, name: str) -> bool:
         """Delete a template by name."""
         template_file = self.templates_dir / f"{name}.json"
+        logger.debug(f"Deleting template: {name}")
         if template_file.exists():
             template_file.unlink()
+            logger.info(f"Template deleted: {name}")
             return True
+        logger.warning(f"Template not found: {name}")
         return False
 
     def _load_history(self) -> dict:
         """Load history from file."""
+        logger.debug(f"Loading history from {self.history_file}")
         if not self.history_file.exists():
+            logger.debug("History file does not exist, returning empty history")
             return {"runs": [], "version": "1.0"}
         try:
             with open(self.history_file, encoding="utf-8") as f:
-                return json.load(f)
+                history = json.load(f)
+                logger.debug(f"History loaded: {len(history.get('runs', []))} runs")
+                return history
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             # If file is corrupted, try to backup and start fresh
             logger.warning(f"History file is corrupted: {e}. Creating backup and starting fresh.")
@@ -276,12 +311,18 @@ class BacktestHistory:
                     import shutil
                     shutil.copy2(self.history_file, backup_file)
                     logger.info(f"Corrupted history backed up to {backup_file}")
-            except Exception:
-                pass
+            except Exception as backup_error:
+                logger.error(f"Failed to backup corrupted history file: {backup_error}")
             # Return empty history
             return {"runs": [], "version": "1.0"}
 
     def _save_history(self, history: dict) -> None:
         """Save history to file."""
-        with open(self.history_file, "w") as f:
-            json.dump(history, f, indent=2)
+        logger.debug(f"Saving history to {self.history_file}: {len(history.get('runs', []))} runs")
+        try:
+            with open(self.history_file, "w") as f:
+                json.dump(history, f, indent=2)
+            logger.debug("History saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save history: {e}")
+            raise

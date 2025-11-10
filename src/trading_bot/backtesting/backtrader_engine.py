@@ -4,7 +4,11 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import backtrader as bt
+try:
+    import backtrader as bt
+except ImportError:
+    bt = None  # type: ignore[assignment, unused-ignore]
+
 import pandas as pd
 
 from trading_bot.strategies.base import BaseStrategy
@@ -12,18 +16,18 @@ from trading_bot.strategies.base import BaseStrategy
 logger = logging.getLogger(__name__)
 
 
-class BacktraderStrategy(bt.Strategy):
+class BacktraderStrategy(bt.Strategy if bt else object):  # type: ignore[misc]
     """Wrapper to use BaseStrategy with Backtrader."""
 
     params = (
-        ("strategy", None),
+        ("base_strategy", None),  # Renamed from 'strategy' to avoid conflict with addstrategy
         ("short_window", 50),
         ("long_window", 200),
     )
 
     def __init__(self):
         """Initialize Backtrader strategy wrapper."""
-        self.strategy = self.params.strategy  # type: ignore[assignment]
+        self.strategy = self.params.base_strategy  # type: ignore[assignment]
         if self.strategy:
             # Generate signals from strategy
             self.data_with_signals = self.strategy.generate_signals(
@@ -84,7 +88,14 @@ class BacktraderEngine:
         Args:
             initial_capital: Starting capital
             commission: Commission rate per trade
+
+        Raises:
+            ImportError: If backtrader is not installed
         """
+        if bt is None:
+            raise ImportError(
+                "backtrader is not installed. Install it with: uv add backtrader"
+            )
         self.initial_capital = initial_capital
         self.commission = commission
 
@@ -110,9 +121,10 @@ class BacktraderEngine:
         cerebro = bt.Cerebro()
 
         # Add strategy
+        # Note: Using 'base_strategy' parameter name to avoid conflict with addstrategy method
         cerebro.addstrategy(
             BacktraderStrategy,
-            strategy=strategy,  # type: ignore[arg-type]
+            base_strategy=strategy,  # type: ignore[arg-type]
         )
 
         # Convert DataFrame to Backtrader data feed

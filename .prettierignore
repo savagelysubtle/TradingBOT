@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+
+# Build outputs
+dist/
+build/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Data and logs
+data/
+logs/
+results/
+
+# Lock files
+uv.lock
+package-lock.json
+yarn.lock
+
+# Textual CSS (uses custom syntax)
+src/trading_bot/interfaces/tui.css
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+
+# Documentation
+CHANGELOG.md
+
+# Environment files
+.env
+.env.local
+

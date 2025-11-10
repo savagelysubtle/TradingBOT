@@ -1,0 +1,278 @@
+---
+globs: src/trading_bot/interfaces/**/*.py
+alwaysApply: false
+---
+
+# TUI Architecture Guide
+
+This document describes the architecture and organization of the Trading Bot TUI (Text User Interface) located in `src/trading_bot/interfaces/`.
+
+## Directory Structure
+
+```
+src/trading_bot/interfaces/
+├── __init__.py              # Package exports (CLI and TUI entry points)
+├── cli.py                   # Command-line interface (Click-based)
+├── tui.py                   # Main TUI application (Textual App)
+├── tui.css                  # TUI stylesheet (Textual CSS)
+├── pages/                   # Page modules (screen-level components)
+│   ├── __init__.py          # Page exports
+│   ├── base_page.py         # BasePage abstract class
+│   ├── dashboard_page.py    # Dashboard/home page
+│   ├── wizard_page.py       # Backtest configuration wizard
+│   ├── history_page.py      # Backtest history viewer
+│   ├── monte_carlo_page.py  # Monte Carlo simulation page
+│   └── strategies_page.py   # Strategy management page
+└── widgets/                 # Reusable widget components
+    ├── __init__.py          # Widget exports
+    ├── load_bar_widget.py   # Sparkline visualization widget
+    ├── status_sidebar.py    # Configuration status sidebar
+    └── strategy_parameters_panel.py  # Dynamic strategy parameters
+```
+
+## Architecture Overview
+
+### Main Application ([tui.py](mdc:src/trading_bot/interfaces/tui.py))
+
+The `TradingBotTUI` class extends Textual's `App` and serves as the main orchestrator:
+
+- **Composition**: Creates Header, Tabs, body Container, and Footer
+- **State Management**: Holds references to `TradingBot`, `TradingConfig`, `BacktestConfiguration`, and `BacktestHistory`
+- **Page Management**: Instantiates and manages page objects (DashboardPage, WizardPage, etc.)
+- **Tab Navigation**: Handles tab switching via `_switch_to_tab()` method
+- **Event Handling**: Processes user interactions and coordinates between pages
+
+**Key Responsibilities:**
+
+- Initialize bot, config, and history objects
+- Manage application-wide state
+- Handle tab navigation
+- Coordinate page lifecycle
+- Process global keyboard bindings
+
+### Pages ([pages/](mdc:src/trading_bot/interfaces/pages/))
+
+Pages represent full-screen views in the TUI. All pages inherit from `BasePage`.
+
+#### BasePage Pattern ([base_page.py](mdc:src/trading_bot/interfaces/pages/base_page.py))
+
+```python
+class BasePage(ABC):
+    def __init__(self, app):
+        self.app = app
+        self.bot = app.bot
+        self.config = app.config
+        self.backtest_config = app.backtest_config
+        self.history = app.history
+
+    @abstractmethod
+    def compose(self, body: Container) -> None:
+        """Mount widgets to body container."""
+```
+
+**Page Structure:**
+
+- Each page receives a reference to the main app
+- Pages access shared state via `self.app.*` attributes
+- `compose()` method mounts widgets into the provided `body` Container
+- Pages can implement `on_mount()` and `on_unmount()` lifecycle hooks
+
+**Available Pages:**
+
+- `DashboardPage`: Overview with recent runs, templates, and quick actions
+- `WizardPage`: Step-by-step backtest configuration
+- `HistoryPage`: Browse and view past backtest results
+- `MonteCarloPage`: Run Monte Carlo simulations
+- `StrategiesPage`: Manage and test strategies
+
+### Widgets ([widgets/](mdc:src/trading_bot/interfaces/widgets/))
+
+Widgets are reusable UI components that can be used across multiple pages.
+
+**Widget Organization:**
+
+- Each widget is in its own file
+- Widgets extend Textual widget classes (Static, Container, etc.)
+- Widgets are exported via `__init__.py` for clean imports
+
+**Available Widgets:**
+
+- `LoadBarWidget`: Sparkline visualization using Unicode block characters
+- `StatusSidebar`: Persistent sidebar showing current configuration state
+- `StrategyParametersPanel`: Dynamic form for strategy-specific parameters
+
+**Widget Pattern:**
+
+```python
+class MyWidget(Static):
+    """Widget description."""
+
+    DEFAULT_CSS = """
+    MyWidget {
+        /* CSS styles */
+    }
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def compose(self) -> ComposeResult:
+        """Compose child widgets."""
+        yield SomeWidget()
+```
+
+## Import Patterns
+
+### Importing Pages
+
+```python
+from trading_bot.interfaces.pages import DashboardPage, WizardPage
+```
+
+### Importing Widgets
+
+```python
+from trading_bot.interfaces.widgets import LoadBarWidget, StatusSidebar
+```
+
+### Importing Main App
+
+```python
+from trading_bot.interfaces.tui import TradingBotTUI, main as tui_main
+```
+
+## Creating New Pages
+
+1. **Create the page file** in `pages/` directory:
+
+   ```python
+   from trading_bot.interfaces.pages.base_page import BasePage
+
+   class MyPage(BasePage):
+       def compose(self, body: Container) -> None:
+           body.mount(Static("My Page Content"))
+   ```
+
+2. **Export in `pages/__init__.py`**:
+
+   ```python
+   from trading_bot.interfaces.pages.my_page import MyPage
+   __all__ = [..., "MyPage"]
+   ```
+
+3. **Add to main app** in [tui.py](mdc:src/trading_bot/interfaces/tui.py):
+   - Import in `on_mount()`: `from trading_bot.interfaces.pages import MyPage`
+   - Instantiate: `self.my_page = MyPage(self)`
+   - Add tab: Update `Tabs()` in `compose()` method
+   - Handle tab switch: Add case in `_switch_to_tab()`
+
+## Creating New Widgets
+
+1. **Create widget file** in `widgets/` directory:
+
+   ```python
+   from textual.widgets import Static
+
+   class MyWidget(Static):
+       """Widget description."""
+
+       def __init__(self, **kwargs):
+           super().__init__(**kwargs)
+   ```
+
+2. **Export in `widgets/__init__.py`**:
+
+   ```python
+   from trading_bot.interfaces.widgets.my_widget import MyWidget
+   __all__ = [..., "MyWidget"]
+   ```
+
+3. **Use in pages/widgets**:
+   ```python
+   from trading_bot.interfaces.widgets import MyWidget
+   ```
+
+## CSS Styling
+
+- Main stylesheet: [tui.css](mdc:src/trading_bot/interfaces/tui.css)
+- Widget-specific CSS: Use `DEFAULT_CSS` class variable in widget classes
+- CSS follows Textual's CSS syntax (similar to web CSS but simplified)
+
+## State Management
+
+**Application State** (stored in `TradingBotTUI`):
+
+- `self.bot`: TradingBot instance
+- `self.config`: TradingConfig (from .env)
+- `self.backtest_config`: BacktestConfiguration (current backtest setup)
+- `self.history`: BacktestHistory (past runs and templates)
+- `self.backtest_results`: Latest backtest results dict
+- `self.backtest_data`: Latest backtest DataFrame
+- `self.current_tab`: Currently active tab name
+
+**Page Access Pattern:**
+
+```python
+# In any page
+self.app.backtest_config.symbol  # Access config
+self.app.history.get_runs()        # Access history
+```
+
+## Event Handling
+
+- **Global Events**: Handled in `TradingBotTUI` via `@on()` decorators
+- **Page Events**: Handled in individual page classes
+- **Widget Events**: Handled in widget classes
+- Use `@work` decorator for async operations to prevent blocking UI
+
+## Best Practices
+
+1. **Separation of Concerns**:
+
+   - Pages handle screen-level composition
+   - Widgets handle reusable UI components
+   - Main app handles navigation and state
+
+2. **Widget Reusability**:
+
+   - Extract common UI patterns into widgets
+   - Keep widgets focused and single-purpose
+   - Use composition over inheritance for complex widgets
+
+3. **State Access**:
+
+   - Pages access state via `self.app.*` attributes
+   - Don't duplicate state in pages
+   - Use `BacktestConfiguration` for backtest state
+
+4. **CSS Organization**:
+
+   - Widget-specific CSS in `DEFAULT_CSS` class variable
+   - Global styles in [tui.css](mdc:src/trading_bot/interfaces/tui.css)
+   - Use CSS classes for reusable styles
+
+5. **Error Handling**:
+
+   - Use try/except blocks for optional imports (TA-Lib, ML, etc.)
+   - Log errors with `logger.debug()` for non-critical failures
+   - Show user-friendly error messages in UI
+
+6. **Async Operations**:
+
+   - Use `@work` decorator for long-running operations
+   - Use `await` for async operations
+   - Don't block the UI thread
+
+7. **Import Organization**:
+   - Standard library imports first
+   - Third-party imports (Textual, Rich, etc.)
+   - First-party imports (`trading_bot.*`)
+   - Use `TYPE_CHECKING` for type-only imports when needed
+
+## File References
+
+- Main App: [tui.py](mdc:src/trading_bot/interfaces/tui.py)
+- Base Page: [pages/base_page.py](mdc:src/trading_bot/interfaces/pages/base_page.py)
+- Widgets Init: [widgets/**init**.py](mdc:src/trading_bot/interfaces/widgets/__init__.py)
+- Pages Init: [pages/**init**.py](mdc:src/trading_bot/interfaces/pages/__init__.py)
+- Stylesheet: [tui.css](mdc:src/trading_bot/interfaces/tui.css)

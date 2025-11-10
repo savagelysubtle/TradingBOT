@@ -15,6 +15,11 @@ except ImportError:
     VECTORBT_AVAILABLE = False
     vbt = None
 
+from trading_bot.risk.kelly_criterion import (
+    calculate_metrics_from_backtest,
+    fractional_kelly,
+    kelly_criterion,
+)
 from trading_bot.strategies.base import BaseStrategy
 
 logger = logging.getLogger(__name__)
@@ -127,6 +132,18 @@ class VectorBTEngine:
             returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0.0  # type: ignore[attr-defined]
         )
 
+        # Calculate Kelly Criterion metrics
+        # Convert VectorBT trades to format expected by calculate_metrics_from_backtest
+        trades_list = []
+        if len(trades) > 0:
+            for _, trade in trades.iterrows():  # type: ignore[attr-defined]
+                trades_list.append({"pnl": float(trade["PnL"])})
+
+        kelly_metrics = calculate_metrics_from_backtest(trades_list)
+        kelly_full = kelly_criterion(kelly_metrics.win_rate, kelly_metrics.reward_risk_ratio)
+        kelly_half = fractional_kelly(kelly_full, 0.5)
+        kelly_quarter = fractional_kelly(kelly_full, 0.25)
+
         results = {
             "strategy": strategy.name,
             "symbol": symbol,
@@ -149,6 +166,17 @@ class VectorBTEngine:
             "sharpe_ratio": float(sharpe_ratio),
             "portfolio": portfolio,  # Keep portfolio object for advanced analysis
             "stats": stats,  # Full stats object
+            # Kelly Criterion metrics
+            "kelly_metrics": {
+                "win_rate": kelly_metrics.win_rate,
+                "avg_win_pct": kelly_metrics.avg_win_pct,
+                "avg_loss_pct": kelly_metrics.avg_loss_pct,
+                "reward_risk_ratio": kelly_metrics.reward_risk_ratio,
+                "total_trades": kelly_metrics.total_trades,
+                "full_kelly": kelly_full,
+                "half_kelly": kelly_half,
+                "quarter_kelly": kelly_quarter,
+            },
         }
 
         logger.info(

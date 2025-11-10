@@ -3,7 +3,7 @@ name = "trading-bot"
 version = "0.1.0"
 description = "A comprehensive algorithmic trading bot with backtesting and live trading capabilities"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13.4,<3.15"
 dependencies = [
     "pandas>=2.0.0",
     "numpy>=2.3.4",
@@ -26,7 +26,8 @@ dependencies = [
     "matplotlib>=3.8.0",
     "TA-lib>=0.6.8",
     "vectorbt>=0.26.0",
-    "numba>=0.63.0b1",  # Beta version required for Python 3.14 support
+    "numba>=0.63.0b1; python_version>='3.14'",  # Beta version required for Python 3.14 support
+    "numba>=0.59.0; python_version<'3.14'",  # Standard version for Python 3.13.4
     "xgboost>=2.0.0",
     "lightgbm>=4.1.0",
     "tensorflow>=2.20.0; python_version<='3.13'",
@@ -44,11 +45,10 @@ dev = [
     "ty>=0.0.1a23",
 ]
 gpu = [
-    # GPU Acceleration (requires CUDA 12.x and Python <=3.13)
-    # Note: CuPy doesn't have Python 3.14 wheels yet, so this is optional
-    # Install with: uv add --optional gpu cupy-cuda12x
-    # Or manually: uv pip install cupy-cuda12x (may require --no-build-isolation)
-    "cupy-cuda12x>=13.6.0; python_version<='3.13'",
+    # GPU Acceleration for Monte Carlo simulations
+    # CuPy doesn't support Python 3.14 yet (only 3.9-3.13)
+    # Use with Python 3.13 for GPU acceleration
+    "cupy-cuda13x>=13.6.0; python_version<='3.13'",
 ]
 
 [build-system]
@@ -59,7 +59,7 @@ requires = ["uv_build>=0.9.4,<0.10.0"]
 packages = { find = { where = ["src"], include = ["trading_bot*"] } }
 
 [tool.uv]
-prerelease = "allow"  # Allow pre-release versions (required for numba>=0.63.0b1 with Python 3.14)
+prerelease = "allow"  # Allow pre-release versions (required for numba>=0.63.0b1 with Python 3.14+ and numba>=0.59.0 with Python 3.13.4+)
 
 [tool.ruff]
 line-length = 100

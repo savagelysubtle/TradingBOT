@@ -1,23 +1,27 @@
 .v# Trading Bot
 
-A comprehensive algorithmic trading bot built with Python 3.14, featuring
-**free-threading** (no GIL), cryptocurrency trading via CCXT, advanced
-backtesting with Backtrader, and technical analysis with TA-Lib.
+A comprehensive algorithmic trading bot built with Python 3.13.4+ or 3.14+,
+featuring **free-threading** (no GIL on 3.14+), cryptocurrency trading via CCXT,
+advanced backtesting with Backtrader, and technical analysis with TA-Lib.
 
 ## 🚀 Features
 
 - 📊 **CCXT Integration**: Trade on 100+ cryptocurrency exchanges with a unified
   API
-- ⚡ **VectorBT Backtesting**: Ultra-fast vectorized backtesting (10-100x faster than event-driven)
-- 🎯 **Backtrader Backtesting**: Professional-grade backtesting framework (alternative)
-- 📡 **WebSocket Streaming**: Real-time data streaming with sub-millisecond latency
+- ⚡ **VectorBT Backtesting**: Ultra-fast vectorized backtesting (10-100x faster
+  than event-driven)
+- 🎯 **Backtrader Backtesting**: Professional-grade backtesting framework
+  (alternative)
+- 📡 **WebSocket Streaming**: Real-time data streaming with sub-millisecond
+  latency
 - 📈 **TA-Lib Indicators**: 150+ technical analysis indicators
 - 🆕 **Advanced Indicators**: Supertrend, Bollinger Bands, Ichimoku Cloud
 - 🤖 **ML Strategies**: Machine learning-based trading strategies
-- 🛡️ **Advanced Risk Management**: Kelly Criterion, ATR-based stops, dynamic position sizing
+- 🛡️ **Advanced Risk Management**: Kelly Criterion, ATR-based stops, dynamic
+  position sizing
 - 🎯 **Multi-Strategy Orchestration**: Run multiple strategies in parallel
-- 🔄 **Python 3.14 Free-Threading**: True parallelism with multi-threading
-  support
+- 🔄 **Python 3.13.4+ / 3.14+ Support**: Dual mode - GPU acceleration (3.13.4)
+  or free-threading (3.14+)
 - 💰 **Paper Trading**: Simulate trading without risking real money
 - 📝 **Comprehensive Logging**: Detailed logging and result tracking
 - 🧵 **Parallel Processing**: Multi-threaded data fetching and backtesting
@@ -27,14 +31,20 @@ backtesting with Backtrader, and technical analysis with TA-Lib.
 See [UPGRADE_SUMMARY.md](docs/@docs/UPGRADE_SUMMARY.md) for complete details.
 
 ### Major Improvements:
-- ⚡ **VectorBT Integration**: 10-100x faster backtesting with vectorized operations
+
+- ⚡ **VectorBT Integration**: 10-100x faster backtesting with vectorized
+  operations
 - 📡 **WebSocket Streaming**: Real-time data with <50ms latency
 - 🛡️ **Advanced Risk Management**: Kelly Criterion and dynamic position sizing
 - 📊 **New Strategies**: Supertrend, Bollinger Bands, Ichimoku Cloud
 - 🤖 **ML Framework**: Machine learning-based strategies with scikit-learn
 - 🎯 **Multi-Strategy**: Parallel execution and portfolio optimization
 
-## 🆕 What's New in Python 3.14
+## 🆕 Python Version Support
+
+The project supports **two Python modes**:
+
+### Python 3.14+ (Free-Threading Mode)
 
 Python 3.14 introduces **free-threading** (removal of the Global Interpreter
 Lock), enabling:
@@ -44,11 +54,21 @@ Lock), enabling:
 - **Concurrent data fetching** for multiple symbols
 - **Parallel backtesting** across multiple strategies
 
+### Python 3.13.4+ (GPU Acceleration Mode)
+
+Python 3.13.4 supports GPU-accelerated Monte Carlo simulations:
+
+- **CuPy/CUDA support** for 10-100x faster simulations
+- **Full compatibility** with all ML libraries
+- **TensorFlow support** (not available on 3.14 yet)
+
 ## Installation
 
 ### Prerequisites
 
-- **Python 3.14** or higher
+- **Python 3.13.4** or **3.14+** (choose based on your needs)
+  - **3.14+**: Free-threading for true parallelism
+  - **3.13.4**: GPU acceleration support (CuPy/CUDA)
 - **TA-Lib C Library** (must be installed first)
 - **UV** package manager
 
@@ -67,8 +87,10 @@ uv sync
 ### Launch the TUI (Text User Interface)
 
 ```bash
-# Launch the interactive TUI (using uv with Python 3.14)
-uv run --python .venv\Scripts\python.exe -m trading_bot.cli tui
+# Launch the interactive TUI (using uv with Python 3.14 or 3.13.4)
+uv run --python 3.14 tui
+# Or with Python 3.13.4 for GPU support:
+uv run --python 3.13.4 tui
 
 # Or activate venv first, then use uv
 .venv\Scripts\activate
@@ -231,9 +253,9 @@ strategy = TALibMACDStrategy()
 bot.run_live(strategy, symbol="BTC/USDT")
 ```
 
-## Multi-Threading with Python 3.14
+## Multi-Threading with Python 3.14+
 
-Python 3.14's free-threading enables true parallelism:
+Python 3.14+'s free-threading enables true parallelism:
 
 ```python
 from trading_bot.utils.multithreading import parallel_backtest
@@ -293,12 +315,18 @@ list.
 
 ## Performance Benefits
 
-With Python 3.14 free-threading:
+**Python 3.14+ (Free-Threading):**
 
 - **4x faster** parallel data fetching
 - **True CPU parallelism** for backtesting
 - **Concurrent strategy evaluation**
 - **Multi-core utilization**
+
+**Python 3.13.4+ (GPU Acceleration):**
+
+- **10-100x faster** Monte Carlo simulations with GPU
+- **Full ML library support** (TensorFlow, CuPy)
+- **CUDA acceleration** for heavy computations
 
 ## Risk Warning
 
