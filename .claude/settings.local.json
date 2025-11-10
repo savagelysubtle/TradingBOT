@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"d:\\Coding\\TradingBOT\" /s /b)",
+      "Bash(\"d:\\Coding\\TradingBOT\\src\\trading_bot\\interfaces\\__init__.py\")",
+      "Bash(uv sync:*)",
+      "Bash(.venvScriptspython.exe --version)",
+      "Bash(uv run:*)",
+      "Bash(uv pip install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

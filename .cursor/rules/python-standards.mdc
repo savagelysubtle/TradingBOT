@@ -1,0 +1,73 @@
+---
+alwaysApply: true
+description: Python coding standards and conventions for Trading Bot
+---
+
+# Python Coding Standards
+
+## Code Style
+
+- **Formatter**: Ruff (Black-compatible)
+- **Type Checker**: ty (Astral's fast type checker)
+- **Line Length**: 100 characters
+- **Target Version**: Python 3.14
+- **Quote Style**: Double quotes
+- **Indent Style**: Spaces (4 spaces)
+
+## Configuration
+
+All code style settings are defined in [pyproject.toml](mdc:pyproject.toml).
+
+### Ruff Configuration
+
+- **Linter**: `ruff check`
+- **Formatter**: `ruff format`
+- **Auto-fix**: `ruff check --fix`
+
+### Type Checking
+
+- **Type Checker**: `ty check`
+- **Root**: `src/` directory
+- **Python Version**: 3.14
+
+## Import Organization
+
+Follow isort conventions (configured in pyproject.toml):
+
+1. Standard library imports
+2. Third-party imports
+3. First-party imports (`trading_bot`)
+4. Local folder imports
+
+## Type Hints
+
+- Always use type hints for function parameters and return types
+- Use `typing` module for complex types
+- Use `Optional[T]` for nullable types
+- Use `Path` from `pathlib` for file paths
+
+## Error Handling
+
+- Use specific exception types
+- Log errors using the logging module
+- Provide meaningful error messages
+- Use `Optional` return types for functions that may fail
+
+## Logging
+
+- Use the logging module from [src/trading_bot/utils/logging.py](mdc:src/trading_bot/utils/logging.py)
+- Use appropriate log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- Log to both console and file (configured in config)
+
+## Testing
+
+- Test files should be in `tests/` directory
+- Test files should match pattern `test_*.py` or `*_test.py`
+- Use pytest for testing (when implemented)
+
+## Documentation
+
+- Use Google-style docstrings for classes and functions
+- Include type information in docstrings
+- Document complex algorithms and trading logic
+- Keep docstrings concise but informative

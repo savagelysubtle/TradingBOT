@@ -1,0 +1,75 @@
+---
+alwaysApply: true
+description: Trading Bot project structure and architecture
+---
+
+# Trading Bot Project Structure
+
+## Project Overview
+
+This is a comprehensive algorithmic trading bot built with Python 3.14, featuring free-threading (no GIL), cryptocurrency trading via CCXT, advanced backtesting with Backtrader/VectorBT, and technical analysis with TA-Lib.
+
+## Key Entry Points
+
+- **CLI**: [src/trading_bot/cli.py](mdc:src/trading_bot/cli.py) - Command-line interface using Click
+- **TUI**: [src/trading_bot/tui.py](mdc:src/trading_bot/tui.py) - Text User Interface using Textual
+- **Main Bot**: [src/trading_bot/bot.py](mdc:src/trading_bot/bot.py) - Main orchestrator class
+- **Configuration**: [src/trading_bot/config.py](mdc:src/trading_bot/config.py) - Configuration management with Pydantic
+
+## Project Structure
+
+```
+TradingBOT/
+├── src/trading_bot/          # Main package
+│   ├── data/                 # Data fetching modules
+│   │   ├── fetcher.py        # yfinance data fetcher (stocks)
+│   │   ├── ccxt_fetcher.py   # CCXT data fetcher (crypto)
+│   │   └── websocket_fetcher.py  # WebSocket real-time streaming
+│   ├── strategies/           # Trading strategies
+│   │   ├── base.py           # Base strategy class
+│   │   ├── moving_average.py # Simple MA crossover
+│   │   ├── ta_lib_strategy.py # TA-Lib strategies
+│   │   ├── advanced_indicators.py # Supertrend, Bollinger, Ichimoku
+│   │   └── ml_strategy.py    # Machine learning strategies
+│   ├── backtesting/          # Backtesting engines
+│   │   ├── engine.py         # Custom backtesting engine
+│   │   ├── backtrader_engine.py # Backtrader integration
+│   │   └── vectorbt_engine.py # VectorBT integration (10-100x faster)
+│   ├── broker/               # Broker interfaces
+│   │   ├── base.py           # Base broker interface
+│   │   ├── paper.py          # Paper trading broker
+│   │   └── ccxt_broker.py    # CCXT cryptocurrency broker
+│   ├── risk/                 # Risk management
+│   │   └── kelly_criterion.py # Kelly Criterion position sizing
+│   ├── utils/                # Utilities
+│   │   ├── logging.py        # Logging utilities
+│   │   ├── multithreading.py # Python 3.14 multi-threading utilities
+│   │   └── visualization.py # Visualization utilities
+│   ├── orchestrator.py       # Multi-strategy orchestration
+│   ├── bot.py                # Main bot orchestrator
+│   ├── cli.py                # Command-line interface
+│   ├── tui.py                # Text User Interface
+│   └── config.py             # Configuration management
+├── data/                     # Cached market data
+├── logs/                     # Log files
+├── results/                  # Backtest results
+└── docs/                     # Documentation
+    └── @docs/                # Summary and planning documents
+```
+
+## Package Management
+
+- **Package Manager**: UV (not pip)
+- **Python Version**: 3.14+ (requires free-threading)
+- **Build Backend**: uv_build
+- **Configuration**: [pyproject.toml](mdc:pyproject.toml)
+
+## Key Dependencies
+
+- **CCXT**: Cryptocurrency exchange integration
+- **Backtrader**: Professional backtesting framework
+- **VectorBT**: Ultra-fast vectorized backtesting (optional)
+- **TA-Lib**: Technical analysis indicators (optional)
+- **Textual**: TUI framework
+- **Rich**: Terminal formatting
+- **Pydantic**: Data validation and settings

@@ -1,0 +1,151 @@
+[project]
+name = "trading-bot"
+version = "0.1.0"
+description = "A comprehensive algorithmic trading bot with backtesting and live trading capabilities"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=2.3.4",
+    "ccxt>=4.0.0",
+    "backtrader>=1.9.78",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "rich>=13.0.0",
+    "textual>=0.80.0",
+    "click>=8.1.0",
+    # Real-time Data
+    "websockets>=12.0",
+    "aiohttp>=3.9.0",
+    # Machine Learning
+    "scikit-learn>=1.4.0",
+    # Optimization
+    "optuna>=3.5.0",
+    # Visualization
+    "matplotlib>=3.8.0",
+    "TA-lib>=0.6.8",
+    "vectorbt>=0.26.0",
+    "numba>=0.63.0b1",  # Beta version required for Python 3.14 support
+    "xgboost>=2.0.0",
+    "lightgbm>=4.1.0",
+    "tensorflow>=2.20.0; python_version<='3.13'",
+    "PyPortfolioOpt>=1.5.5",
+    "cvxpy>=1.4.0",
+]
+
+[project.scripts]
+tui = "trading_bot.interfaces.tui:main"
+trading-bot = "trading_bot.interfaces.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "ty>=0.0.1a23",
+]
+gpu = [
+    # GPU Acceleration (requires CUDA 12.x and Python <=3.13)
+    # Note: CuPy doesn't have Python 3.14 wheels yet, so this is optional
+    # Install with: uv add --optional gpu cupy-cuda12x
+    # Or manually: uv pip install cupy-cuda12x (may require --no-build-isolation)
+    "cupy-cuda12x>=13.6.0; python_version<='3.13'",
+]
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.9.4,<0.10.0"]
+
+[tool.setuptools]
+packages = { find = { where = ["src"], include = ["trading_bot*"] } }
+
+[tool.uv]
+prerelease = "allow"  # Allow pre-release versions (required for numba>=0.63.0b1 with Python 3.14)
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "SIM",
+    "RUF",
+]
+ignore = [
+    "E501",
+    "B008",
+    "C901",
+    "B905",
+]
+
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+"tests/**" = ["S101", "PLR2004", "D"]
+"**/test_*.py" = ["S101", "PLR2004", "D"]
+"scripts/**" = ["T201"]
+"tools/**" = ["T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["trading_bot"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ty.environment]
+root = ["src"]
+python-version = "3.14"
+
+[tool.ty.terminal]
+output-format = "full"
+error-on-warning = false
+

@@ -1,0 +1,110 @@
+---
+alwaysApply: true
+description: Trading Bot specific conventions and patterns
+---
+
+# Trading Bot Specific Conventions
+
+## Strategy Development
+
+All strategies must inherit from
+[BaseStrategy](mdc:src/trading_bot/strategies/base.py):
+
+```python
+from trading_bot.strategies.base import BaseStrategy
+
+class MyStrategy(BaseStrategy):
+    def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
+        # Implementation
+        return signals
+```
+
+## Data Fetching
+
+- **Crypto**: Use [CCXTDataFetcher](mdc:src/trading_bot/data/ccxt_fetcher.py)
+- **Stocks**: Use [DataFetcher](mdc:src/trading_bot/data/fetcher.py) (yfinance)
+- **Real-time**: Use
+  [WebSocketFetcher](mdc:src/trading_bot/data/websocket_fetcher.py)
+
+## Backtesting Engines
+
+Three backtesting engines are available:
+
+1. **VectorBT** (default, fastest):
+   [vectorbt_engine.py](mdc:src/trading_bot/backtesting/vectorbt_engine.py)
+2. **Backtrader**:
+   [backtrader_engine.py](mdc:src/trading_bot/backtesting/backtrader_engine.py)
+3. **Custom**: [engine.py](mdc:src/trading_bot/backtesting/engine.py)
+
+## Broker Interfaces
+
+All brokers must inherit from [BaseBroker](mdc:src/trading_bot/broker/base.py):
+
+- **Paper Trading**: [PaperBroker](mdc:src/trading_bot/broker/paper.py)
+- **CCXT Broker**: [CCXTBroker](mdc:src/trading_bot/broker/ccxt_broker.py)
+
+## Configuration Management
+
+- Use [TradingConfig](mdc:src/trading_bot/config.py) for application settings
+- Load from `.env` file using Pydantic Settings
+- Use [BacktestConfiguration](mdc:src/trading_bot/config.py) for backtest state
+
+## Multi-Threading (Python 3.14)
+
+Leverage Python 3.14's free-threading for true parallelism:
+
+- Use [multithreading.py](mdc:src/trading_bot/utils/multithreading.py) utilities
+- Parallel data fetching for multiple symbols
+- Parallel backtesting across strategies
+
+## Risk Management
+
+- Use [Kelly Criterion](mdc:src/trading_bot/risk/kelly_criterion.py) for
+  position sizing
+- Implement ATR-based stops and take-profits
+- Monitor drawdowns and position limits
+
+## Command-Line Interface
+
+- Use Click for CLI commands
+- Commands defined in [cli.py](mdc:src/trading_bot/cli.py)
+- Use Rich for formatted output
+
+## Text User Interface
+
+- Built with Textual framework
+- Main TUI in [tui.py](mdc:src/trading_bot/tui.py)
+- Widgets in [tui_widgets.py](mdc:src/trading_bot/tui_widgets.py)
+- Styles in [tui.css](mdc:src/trading_bot/tui.css)
+
+## Running Commands
+
+Always use `uv` (not pip):
+
+```bash
+# Run CLI commands
+uv run --python .venv\Scripts\python.exe -m trading_bot.cli <command>
+
+# Or activate venv first
+.venv\Scripts\activate
+uv run -m trading_bot.cli <command>
+```
+
+## Data Formats
+
+- **Crypto Symbols**: Use format `BTC/USDT` (base/quote)
+- **Stock Symbols**: Use format `AAPL` (ticker symbol)
+- **Timeframes**: `1m`, `5m`, `15m`, `1h`, `4h`, `1d`, `1w` (crypto) or `1d`,
+  `1mo`, `1y`, etc. (stocks)
+
+## Results Storage
+
+- Backtest results saved to `results/` directory
+- Each backtest creates a subdirectory with strategy name and symbol
+- Results include: summary.txt, trades.csv, portfolio_history.csv
+
+## Logging
+
+- Logs written to `logs/trading_bot.log`
+- Configure log level via `LOG_LEVEL` environment variable
+- Use structured logging for better debugging

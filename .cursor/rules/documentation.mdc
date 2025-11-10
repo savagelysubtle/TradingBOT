@@ -1,0 +1,44 @@
+---
+globs: docs/**/*.md,*.md
+description: Documentation standards and organization
+---
+
+# Documentation Standards
+
+## Documentation Structure
+
+- **User Guides**: Installation, Quick Start, TUI Guide, Live Data Guide
+- **Summary Documents**: Located in `docs/@docs/` directory
+- **Main README**: [README.md](mdc:README.md) - Project overview and features
+
+## Summary Documents Location
+
+All summary and planning documents should be placed in `docs/@docs/`:
+
+- `docs/@docs/UPGRADE_SUMMARY.md` - Major upgrades and improvements
+- `docs/@docs/TUI_UX_IMPROVEMENT_PLAN.md` - TUI UX analysis and roadmap
+
+## Documentation Files
+
+- [docs/INSTALLATION.md](mdc:docs/INSTALLATION.md) - Installation instructions
+- [docs/INSTALL_WINDOWS.md](mdc:docs/INSTALL_WINDOWS.md) - Windows-specific installation
+- [docs/QUICKSTART.md](mdc:docs/QUICKSTART.md) - Quick start guide
+- [docs/QUICK_START.md](mdc:docs/QUICK_START.md) - Alternative quick start
+- [docs/TUI_GUIDE.md](mdc:docs/TUI_GUIDE.md) - TUI usage guide
+- [docs/LIVE_DATA_GUIDE.md](mdc:docs/LIVE_DATA_GUIDE.md) - Live data streaming guide
+- [docs/UV_USAGE.md](mdc:docs/UV_USAGE.md) - UV package manager usage
+
+## Writing Documentation
+
+- Use clear, concise language
+- Include code examples where relevant
+- Use proper Markdown formatting
+- Link to related documentation
+- Keep installation guides up-to-date with current dependencies
+
+## Code Examples
+
+- Always use `uv run` commands (not `python` directly)
+- Show both Windows PowerShell and Unix shell examples when relevant
+- Include expected output where helpful
+- Use proper code fences with language tags
