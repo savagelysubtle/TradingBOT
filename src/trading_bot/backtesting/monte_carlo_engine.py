@@ -1,6 +1,7 @@
 """Monte Carlo simulation engine for trading strategies with GPU acceleration."""
 
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -86,6 +87,7 @@ class MonteCarloEngine:
         data: pd.DataFrame,
         symbol: str = "UNKNOWN",
         method: str = "bootstrap",
+        progress_callback: Callable[[int], None] | None = None,
     ) -> dict:
         """Run Monte Carlo simulation on a strategy.
 
@@ -94,6 +96,7 @@ class MonteCarloEngine:
             data: Historical OHLCV data
             symbol: Symbol being traded
             method: Simulation method ('bootstrap', 'shuffle_trades', 'randomize_returns')
+            progress_callback: Optional callback function called with completion count during simulation
 
         Returns:
             Dictionary with Monte Carlo simulation results
@@ -104,11 +107,11 @@ class MonteCarloEngine:
         )
 
         if method == "bootstrap":
-            results = self._run_bootstrap(strategy, data, symbol)
+            results = self._run_bootstrap(strategy, data, symbol, progress_callback)
         elif method == "shuffle_trades":
-            results = self._run_shuffle_trades(strategy, data, symbol)
+            results = self._run_shuffle_trades(strategy, data, symbol, progress_callback)
         elif method == "randomize_returns":
-            results = self._run_randomize_returns(strategy, data, symbol)
+            results = self._run_randomize_returns(strategy, data, symbol, progress_callback)
         else:
             raise ValueError(
                 f"Unknown method: {method}. Use 'bootstrap', 'shuffle_trades', or 'randomize_returns'"
@@ -121,6 +124,7 @@ class MonteCarloEngine:
         strategy: BaseStrategy,
         data: pd.DataFrame,
         symbol: str,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> dict:
         """Bootstrap resampling: randomly sample from historical data with replacement.
 
@@ -152,6 +156,10 @@ class MonteCarloEngine:
             result = self.backtest_engine.run(strategy, sampled_data, symbol)
             simulation_results.append(result)
 
+            # Call progress callback if provided
+            if progress_callback is not None:
+                progress_callback(i + 1)
+
         return self._aggregate_results(simulation_results, symbol, strategy.name, "bootstrap")
 
     def _run_shuffle_trades(
@@ -159,6 +167,7 @@ class MonteCarloEngine:
         strategy: BaseStrategy,
         data: pd.DataFrame,
         symbol: str,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> dict:
         """Shuffle trade sequence: randomize the order of trades.
 
@@ -187,6 +196,10 @@ class MonteCarloEngine:
             )
             simulation_results.append(shuffled_result)
 
+            # Call progress callback if provided
+            if progress_callback is not None:
+                progress_callback(i + 1)
+
         return self._aggregate_results(
             simulation_results,
             symbol,
@@ -199,6 +212,7 @@ class MonteCarloEngine:
         strategy: BaseStrategy,
         data: pd.DataFrame,
         symbol: str,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> dict:
         """Randomize returns: add random noise to historical returns.
 
@@ -238,6 +252,10 @@ class MonteCarloEngine:
             # Run backtest on synthetic data
             result = self.backtest_engine.run(strategy, synthetic_data, symbol)
             simulation_results.append(result)
+
+            # Call progress callback if provided
+            if progress_callback is not None:
+                progress_callback(i + 1)
 
         return self._aggregate_results(
             simulation_results,

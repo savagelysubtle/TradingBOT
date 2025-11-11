@@ -4,6 +4,9 @@ from trading_bot.interfaces.widgets.enhanced_progress_bar import EnhancedProgres
 from trading_bot.interfaces.widgets.history_actions_modal import HistoryActionsModal
 from trading_bot.interfaces.widgets.load_bar_widget import LoadBarWidget
 from trading_bot.interfaces.widgets.loading_spinner import LoadingSpinner
+from trading_bot.interfaces.widgets.monte_carlo_comparison_modal import (
+    MonteCarloComparisonModal,
+)
 from trading_bot.interfaces.widgets.monte_carlo_results_widget import (
     MonteCarloResultsWidget,
 )
@@ -18,6 +21,7 @@ __all__ = [
     "HistoryActionsModal",
     "LoadBarWidget",
     "LoadingSpinner",
+    "MonteCarloComparisonModal",
     "MonteCarloResultsWidget",
     "RunHistorySidebar",
     "StatusSidebar",

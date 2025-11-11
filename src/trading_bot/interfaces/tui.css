@@ -87,30 +87,31 @@ Input {
   min-height: 5;
   padding: 1 2;
   border: solid $primary;
-  background: $surface;
+  background: $boost;
   color: $text;
 }
 
 Input:focus {
   border: solid $accent;
-  background: $panel;
+  background: $boost;
+  color: $text;
 }
 
 Select {
   margin-bottom: 1;
-  height: 5;
-  min-height: 5;
-  padding: 0;
+  height: 3;
+  min-height: 3;
+  padding: 1 2;
   border: solid $primary;
-  background: $panel;
+  background: $boost;
   color: $text;
   text-style: bold;
-  overflow: hidden;
+  min-width: 40;
 }
 
 Select:focus {
   border: solid $accent;
-  background: $panel;
+  background: $boost;
   color: $text;
 }
 
@@ -120,9 +121,8 @@ Select > Static {
   text-style: bold;
   width: 100%;
   height: 100%;
-  padding: 1 2;
-  text-align: left;
-  overflow: hidden;
+  padding: 0 2;
+  content-align: left middle;
 }
 
 SelectList {
@@ -156,52 +156,57 @@ SelectOption.--highlight {
   margin-bottom: 1;
   color: $accent;
   height: auto;
+  text-style: bold;
 }
 
 .step-hint {
-  margin-bottom: 1;
+  margin-bottom: 2;
   color: $text-muted;
   height: auto;
 }
 
 .field-hint {
   margin-top: 0;
-  margin-bottom: 1;
-  color: $text-muted;
+  margin-bottom: 0;
+  color: #888888;
   height: auto;
+  text-style: italic;
 }
 
 /* Wizard container must scroll */
 #wizard-scroll {
   height: 100%;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 /* Wizard main container */
 #wizard-main {
   height: auto;
   min-height: 100%;
+  padding: 2;
 }
 
 /* Wizard row layouts - these should be visible */
 .wizard-row {
   width: 100%;
   height: auto;
-  min-height: 12;
-  margin: 1 0;
+  min-height: 15;
+  margin: 0 0 2 0;
   padding: 2;
-  border: solid $primary;
-  background: $surface;
+  border: round $primary;
+  background: #0d0d0d;
 }
 
 .wizard-row > Vertical {
   width: 1fr;
   height: auto;
-  min-height: 10;
+  min-height: 12;
+  padding: 0 1;
 }
 
-.wizard-row > Label {
-  color: $text;
+.wizard-row Vertical > Label {
+  color: #00d9ff;
   height: auto;
   margin-bottom: 1;
   margin-top: 0;
@@ -212,51 +217,71 @@ SelectOption.--highlight {
   width: 100%;
   height: 5;
   min-height: 5;
-  min-width: 20;
+  min-width: 30;
   padding: 1 2;
+  border: solid $accent;
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.wizard-row Input:focus {
+  border: solid $success;
+  background: #2a2a2a;
+  color: #ffffff;
 }
 
 .wizard-row Select {
   width: 100%;
   height: 5;
   min-height: 5;
-  min-width: 20;
+  min-width: 30;
+  padding: 1 2;
+  border: solid $accent;
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.wizard-row Select:focus {
+  border: solid $success;
+  background: #2a2a2a;
+  color: #ffffff;
+}
+
+.wizard-row Select > Static {
+  color: #ffffff;
+  background: transparent;
   padding: 0;
-  overflow: hidden;
+  content-align: left middle;
 }
 
 .wizard-row .field-hint {
   height: auto;
   margin-top: 1;
+  padding: 0;
 }
 
-/* Ensure date range row is visible */
-#wizard-date-range-row {
+/* Wizard button row */
+.wizard-button-row {
   width: 100%;
   height: auto;
-  min-height: 12;
-  margin: 1 0;
+  margin: 2 0;
   padding: 1;
-  border: solid $primary;
-  background: $surface;
 }
 
-#wizard-date-range-row > Vertical {
+.wizard-button-row > Button {
   width: 1fr;
-  height: auto;
-  min-height: 10;
-}
-
-#wizard-date-range-row > Label {
-  color: $text;
-  height: auto;
-  margin-bottom: 1;
-}
-
-#wizard-date-range-row Input {
-  width: 100%;
-  height: 3;
+  margin: 0 1;
   min-width: 20;
+}
+
+/* Wizard progress indicator */
+#wizard-progress {
+  text-align: center;
+  padding: 2;
+  margin: 2 0;
+  background: $panel;
+  border: round $accent;
+  height: auto;
 }
 
 /* Wizard container layout */
@@ -287,4 +312,277 @@ SelectOption.--highlight {
   width: 100%;
   padding: 1;
   margin: 1 0;
+}
+
+/* Wizard results section */
+#wizard-results-section {
+  width: 100%;
+  height: auto;
+  margin-top: 2;
+  padding: 2;
+  border: round $success;
+  background: $panel;
+}
+
+#wizard-results-scroll {
+  width: 100%;
+  height: auto;
+  max-height: 40;
+  overflow-y: auto;
+  padding: 1;
+  margin-top: 1;
+}
+
+#wizard-results {
+  width: 100%;
+  height: auto;
+  padding: 1;
+}
+
+/* Wizard data and strategy config sections */
+#wizard-data-config,
+#wizard-strategy-config {
+  width: 100%;
+  height: auto;
+  margin-bottom: 2;
+}
+
+/* Wizard actions section */
+#wizard-actions {
+  width: 100%;
+  height: auto;
+  margin: 3 0 2 0;
+}
+
+/* Wizard params container */
+#wizard-params-container {
+  width: 100%;
+  height: auto;
+  margin-top: 2;
+  padding: 2;
+  border: round $warning;
+  background: $surface;
+}
+
+/* Wizard select dropdowns - make them bigger for better visibility */
+.wizard-select {
+  height: 7;
+  min-height: 7;
+  width: 100%;
+  min-width: 40;
+  padding: 0 1;
+  border: solid $primary;
+  background: $boost;
+  color: $text;
+  text-style: bold;
+}
+
+.wizard-select:focus {
+  border: solid $accent;
+  background: $boost;
+  color: $text;
+}
+
+.wizard-select > Static {
+  color: $text;
+  text-style: bold;
+  width: 100%;
+  height: 100%;
+  padding: 0 1;
+  content-align: left middle;
+}
+
+/* Make the dropdown list taller for wizard selects */
+.wizard-select SelectList {
+  max-height: 20;
+  border: solid $accent;
+  background: $panel;
+  color: $text;
+  padding: 0;
+}
+
+.wizard-select SelectOption {
+  padding: 0 1;
+  color: $text;
+  height: 5;
+  min-height: 5;
+}
+
+.wizard-select SelectOption:hover {
+  background: $primary;
+  color: $text;
+}
+
+.wizard-select SelectOption.--highlight {
+  background: $accent;
+  color: $text;
+}
+
+/* ============================================================================
+ * MONTE CARLO PAGE STYLES
+ * ============================================================================ */
+
+.monte-carlo-page {
+    height: 100%;
+    width: 100%;
+}
+
+.mc-main-workspace {
+    height: 100%;
+    width: 100%;
+}
+
+.mc-left-panel {
+    width: 35%;
+    height: 100%;
+    border-right: solid $primary;
+    padding: 0;
+}
+
+.mc-left-panel > ScrollableContainer {
+    height: 100%;
+    width: 100%;
+}
+
+.mc-scroll-content {
+    height: auto;
+    width: 100%;
+    padding: 1;
+}
+
+.mc-left-panel Select {
+    height: auto;
+    min-height: 3;
+    margin-bottom: 1;
+}
+
+.mc-left-panel Input {
+    height: 3;
+    margin-bottom: 1;
+}
+
+.mc-left-panel Label {
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+.mc-left-panel Vertical {
+    height: auto;
+    width: 100%;
+}
+
+.mc-left-panel Button {
+    margin: 1 0;
+}
+
+.mc-right-panel {
+    width: 65%;
+    height: 100%;
+    padding: 1;
+}
+
+.mc-header {
+    height: 5;
+    border-bottom: solid $primary;
+    padding: 1;
+}
+
+.mc-config-section {
+    height: auto;
+    border-bottom: solid $secondary;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.run-button {
+    width: 1fr;
+    min-width: 20;
+    text-style: bold;
+    border: thick $success;
+}
+
+.run-button:hover {
+    background: $success;
+    color: $background;
+}
+
+.mc-progress-section {
+    height: auto;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.progress-container {
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.mc-quick-metrics-section {
+    height: auto;
+    padding: 1;
+}
+
+.mc-quick-metrics-scroll {
+    height: 100%;
+}
+
+.metrics-container {
+    background: $surface;
+    border: solid $primary;
+    padding: 1;
+}
+
+.mc-main-results {
+    height: 100%;
+    width: 100%;
+}
+
+.mc-summary-cards {
+    height: 20%;
+    margin-bottom: 1;
+}
+
+.metric-card {
+    width: 1fr;
+    height: 100%;
+    border: solid $secondary;
+    padding: 1;
+    margin-right: 1;
+}
+
+.metric-card:last-child {
+    margin-right: 0;
+}
+
+.metric-group-title {
+    text-align: center;
+    border-bottom: solid $secondary;
+    margin-bottom: 1;
+}
+
+.mc-detailed-section {
+    height: 25%;
+    margin-bottom: 1;
+}
+
+.results-table-container {
+    height: 100%;
+    border: solid $secondary;
+    padding: 1;
+}
+
+.mc-distribution-section {
+    height: 25%;
+    margin-bottom: 1;
+}
+
+.mc-recommendations-section {
+    height: 25%;
+}
+
+.sub-title {
+    border-bottom: solid $secondary;
+    margin-bottom: 1;
 }

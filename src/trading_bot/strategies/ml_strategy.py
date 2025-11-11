@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier  # type: ignore[import-untyped]
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier  # type: ignore[import-untyped]
 from sklearn.model_selection import TimeSeriesSplit  # type: ignore[import-untyped]
 from sklearn.preprocessing import StandardScaler  # type: ignore[import-untyped]
 
@@ -50,6 +50,9 @@ class MLRandomForestStrategy(BaseStrategy):
             confidence_threshold=confidence_threshold,
         )
         self.lookback = lookback
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
         self.model = RandomForestClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
@@ -60,6 +63,33 @@ class MLRandomForestStrategy(BaseStrategy):
         self.scaler = StandardScaler()
         self.confidence_threshold = confidence_threshold
         self.is_trained = False
+
+        # Ensemble models
+        self.ensemble_models = self._create_ensemble_models()
+        self.ensemble_trained = False
+
+    def _create_ensemble_models(self) -> VotingClassifier:  # type: ignore[return]
+        """Create ensemble of different ML models."""
+        rf = RandomForestClassifier(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            random_state=42,
+            n_jobs=-1,
+        )
+
+        gb = GradientBoostingClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=3,
+            random_state=42,
+        )
+
+        return VotingClassifier(
+            estimators=[('rf', rf), ('gb', gb)],
+            voting='soft',  # Use probability-based voting
+            n_jobs=-1,
+        )
 
     def create_features(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[return]
         """Engineer features for ML model.
@@ -121,10 +151,25 @@ class MLRandomForestStrategy(BaseStrategy):
         # Price position in range
         df["high_low_ratio"] = (df["close"] - df["low"]) / (df["high"] - df["low"])
 
-        # Lagged features
-        for lag in [1, 2, 3, 5]:
+        # Lagged features (expanded)
+        for lag in [1, 2, 3, 5, 10, 20]:
             df[f"returns_lag_{lag}"] = df["returns"].shift(lag)
             df[f"volume_lag_{lag}"] = df["volume"].shift(lag)
+            df[f"rsi_lag_{lag}"] = df["rsi"].shift(lag)
+            df[f"momentum_lag_{lag}"] = df["momentum"].shift(lag)
+
+        # Statistical features
+        df["returns_volatility_20"] = df["returns"].rolling(20).std()
+        df["returns_skew_20"] = df["returns"].rolling(20).skew()
+        df["returns_kurtosis_20"] = df["returns"].rolling(20).kurt()
+
+        # Volume analysis
+        df["volume_change"] = df["volume"].pct_change()
+        df["volume_trend"] = df["volume"].rolling(10).mean() / df["volume"].rolling(50).mean()
+
+        # Trend strength indicators
+        df["trend_strength"] = abs(df["close"] - df["close"].shift(20)) / df["close"].shift(20)
+        df["price_acceleration"] = df["returns"].diff()
 
         return df.dropna()
 
@@ -196,7 +241,18 @@ class MLRandomForestStrategy(BaseStrategy):
             scores.append(score)
 
         avg_score = np.mean(scores)  # type: ignore[attr-defined]
-        logger.info(f"ML model training completed. Average CV score: {avg_score:.3f}")
+        logger.info(f"Random Forest training completed. Average CV score: {avg_score:.3f}")
+
+        # Also train ensemble model
+        try:
+            self.ensemble_models.fit(X_train_scaled, y_train)  # type: ignore[attr-defined]
+            ensemble_score = self.ensemble_models.score(X_val_scaled, y_val)  # type: ignore[attr-defined]
+            logger.info(f"Ensemble model training completed. CV score: {ensemble_score:.3f}")
+            self.ensemble_trained = True
+        except Exception as e:
+            logger.warning(f"Ensemble training failed: {e}")
+            self.ensemble_trained = False
+
         self.is_trained = True
         self.feature_cols = feature_cols
 
@@ -250,9 +306,15 @@ class MLRandomForestStrategy(BaseStrategy):
             # If scaler not fitted, fit it now
             X_scaled = self.scaler.fit_transform(X)  # type: ignore[attr-defined]
 
-        # Predict
-        predictions = self.model.predict(X_scaled)  # type: ignore[attr-defined]
-        probabilities = self.model.predict_proba(X_scaled)  # type: ignore[attr-defined]
+        # Predict using ensemble if available, otherwise use single model
+        if self.ensemble_trained:
+            predictions = self.ensemble_models.predict(X_scaled)  # type: ignore[attr-defined]
+            probabilities = self.ensemble_models.predict_proba(X_scaled)  # type: ignore[attr-defined]
+            logger.debug("Using ensemble model for predictions")
+        else:
+            predictions = self.model.predict(X_scaled)  # type: ignore[attr-defined]
+            probabilities = self.model.predict_proba(X_scaled)  # type: ignore[attr-defined]
+            logger.debug("Using Random Forest model for predictions")
 
         # Generate signals based on confidence
         df["signal"] = 0

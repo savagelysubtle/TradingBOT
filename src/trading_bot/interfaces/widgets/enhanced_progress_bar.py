@@ -1,7 +1,7 @@
 """Enhanced progress bar with stages and cancellation."""
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from textual import on
 from textual.containers import Vertical
@@ -59,12 +59,7 @@ class EnhancedProgressBar(Vertical):
     current_stage = reactive(1)
     can_cancel = reactive(True)
 
-    def __init__(
-        self,
-        stages: list[str] | None = None,
-        can_cancel: bool = True,
-        **kwargs
-    ):
+    def __init__(self, stages: list[str] | None = None, can_cancel: bool = True, **kwargs):
         """Initialize enhanced progress bar.
 
         Args:
@@ -78,20 +73,24 @@ class EnhancedProgressBar(Vertical):
         self.can_cancel = can_cancel
         self._cancel_callback: Callable[[], None] | None = None
 
-        logger.debug(f"EnhancedProgressBar initialized with {self.total_stages} stages: {self.stages}")
+        logger.debug(
+            f"EnhancedProgressBar initialized with {self.total_stages} stages: {self.stages}"
+        )
 
     def compose(self):
         """Compose progress widgets."""
         yield Static(
             f"Stage {self.current_stage}/{self.total_stages}: {self.stage}",
             classes="stage-label",
-            id="stage-label"
+            id="stage-label",
         )
         yield ProgressBar(total=100.0, show_eta=False, id="progress-bar")
         yield Static(f"{self.progress:.0f}%", classes="percentage", id="percentage-label")
 
         if self.can_cancel:
-            yield Button("Cancel", variant="error", classes="cancel-button", id="btn-cancel-progress")
+            yield Button(
+                "Cancel", variant="error", classes="cancel-button", id="btn-cancel-progress"
+            )
 
     def on_mount(self) -> None:
         """Initialize progress bar when mounted."""

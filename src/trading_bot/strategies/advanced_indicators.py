@@ -1,10 +1,14 @@
 """Advanced technical analysis strategies using TA-Lib."""
 
+import logging
+
 import numpy as np
 import pandas as pd
 import talib  # type: ignore[import-untyped]
 
 from trading_bot.strategies.base import BaseStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class SupertrendStrategy(BaseStrategy):

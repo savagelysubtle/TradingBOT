@@ -393,10 +393,11 @@ class TradingBotTUI(App):
             self.history_page.handle_refresh()
 
     @on(Button.Pressed, "#btn-run-mc")
-    def on_run_monte_carlo(self) -> None:
+    @work
+    async def on_run_monte_carlo(self) -> None:
         """Run Monte Carlo simulation - delegates to Monte Carlo page."""
         if self.monte_carlo_page:
-            self.monte_carlo_page.handle_run_monte_carlo()
+            await self.monte_carlo_page.handle_run_monte_carlo()
 
     @on(Button.Pressed, "#btn-view-mc-charts")
     def on_view_mc_charts(self) -> None:
@@ -409,6 +410,18 @@ class TradingBotTUI(App):
         """Export Monte Carlo results - delegates to Monte Carlo page."""
         if self.monte_carlo_page:
             self.monte_carlo_page.handle_export()
+
+    @on(Button.Pressed, "#btn-stop-mc")
+    def on_stop_mc(self) -> None:
+        """Stop Monte Carlo simulation - delegates to Monte Carlo page."""
+        if self.monte_carlo_page:
+            self.monte_carlo_page.handle_stop_monte_carlo()
+
+    @on(Button.Pressed, "#btn-compare-mc")
+    def on_compare_mc(self) -> None:
+        """Compare Monte Carlo results - delegates to Monte Carlo page."""
+        if self.monte_carlo_page:
+            self.monte_carlo_page.handle_compare_monte_carlo()
 
     @on(Button.Pressed, "#btn-run-wfo")
     def on_run_wfo(self) -> None:

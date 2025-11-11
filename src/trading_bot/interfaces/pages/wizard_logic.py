@@ -2,13 +2,11 @@
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from trading_bot.bot import TradingBot
 from trading_bot.config import BacktestConfiguration
-from trading_bot.data.ccxt_fetcher import CCXTDataFetcher
 from trading_bot.strategies.base import BaseStrategy
 
 if TYPE_CHECKING:
@@ -22,24 +20,24 @@ logger = logging.getLogger(__name__)
 class WizardLogic:
     """Business logic for wizard operations."""
 
-    def __init__(self, app: "WizardPage"):
+    def __init__(self, app: WizardPage):
         self.app = app
 
     def sync_config_from_inputs(self) -> None:
         """Synchronize backtest_config from wizard input widgets."""
         logger.debug("Syncing configuration from wizard inputs")
         try:
-            limit_value = self.app.query_one("#wizard-limit", "Input").value
+            limit_value = self.app.app.query_one("#wizard-limit").value
             limit = int(limit_value) if limit_value else 365
 
-            start_date_value = self.app.query_one("#wizard-start-date", "Input").value
-            end_date_value = self.app.query_one("#wizard-end-date", "Input").value
+            start_date_value = self.app.app.query_one("#wizard-start-date").value
+            end_date_value = self.app.app.query_one("#wizard-end-date").value
 
-            exchange_value = str(self.app.query_one("#wizard-exchange", "Select").value)
-            symbol_value = self.app.query_one("#wizard-symbol", "Input").value
-            timeframe_value = str(self.app.query_one("#wizard-timeframe", "Select").value)
-            strategy_value = str(self.app.query_one("#wizard-strategy", "Select").value)
-            engine_value = str(self.app.query_one("#wizard-engine", "Select").value)
+            exchange_value = str(self.app.app.query_one("#wizard-exchange").value)
+            symbol_value = self.app.app.query_one("#wizard-symbol").value
+            timeframe_value = str(self.app.app.query_one("#wizard-timeframe").value)
+            strategy_value = str(self.app.app.query_one("#wizard-strategy").value)
+            engine_value = str(self.app.app.query_one("#wizard-engine").value)
 
             logger.debug(
                 f"Syncing config: exchange={exchange_value}, symbol={symbol_value}, timeframe={timeframe_value}, strategy={strategy_value}, engine={engine_value}, limit={limit}"
@@ -81,7 +79,7 @@ class WizardLogic:
                     step_text = "Ready to Run"
 
             # Update progress widget
-            progress_widget = self.app.query_one("#wizard-progress", "WizardProgressWidget")
+            progress_widget = self.app.app.query_one("#wizard-progress")
             progress_widget.update_progress(step, step_text)
         except Exception as e:
             logger.debug(f"Failed to update wizard progress: {e}")
@@ -115,7 +113,7 @@ class WizardLogic:
 
         # Update validation panel
         try:
-            panel = self.app.query_one("#wizard-validation-panel", "ValidationPanel")
+            panel = self.app.app.query_one("#wizard-validation-panel")
             panel.update_results(results)
             logger.debug("Validation panel updated with results")
         except Exception as e:
@@ -144,7 +142,7 @@ class WizardLogic:
                     f"Need at least {long_period + 50} candles for reliable signals."
                 )
             elif long_period > self.app.backtest_config.limit * 0.5:
-                self.app.notify(
+                self.app.app.notify(
                     f"⚠ Long MA period ({long_period}) is large relative to data ({self.app.backtest_config.limit} candles). "
                     f"Consider using shorter periods (e.g., {max(20, int(self.app.backtest_config.limit * 0.1))}/{max(50, int(self.app.backtest_config.limit * 0.3))}) "
                     f"or more candles ({long_period + 100}+)",
@@ -327,4 +325,3 @@ class WizardLogic:
         except Exception as e:
             logger.exception(f"Failed to create strategy '{strategy_name}': {e}")
             return None
-

@@ -1,21 +1,17 @@
 """Wizard page widgets for the Trading Bot TUI."""
 
 import logging
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-import pandas as pd
 from rich.console import Console
 from rich.table import Table
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
 from textual.widgets import Button, Input, Label, Select, Static
 
 from trading_bot.config import BacktestConfiguration
-from trading_bot.interfaces.widgets import StrategyParametersPanel, ValidationPanel
-from trading_bot.strategies.base import BaseStrategy
 
 if TYPE_CHECKING:
-    from trading_bot.interfaces.pages.wizard_page import WizardPage
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +55,10 @@ class WizardDataConfigWidget(Container):
         )
 
         # Row 1: Exchange and Symbol
-        with Horizontal(classes="wizard-row"):
-            with Vertical():
-                yield Label("Exchange:")
-                yield Select(
+        yield Horizontal(
+            Vertical(
+                Label("Exchange:"),
+                Select(
                     [
                         ("Binance", "binance"),
                         ("Coinbase", "coinbase"),
@@ -71,23 +67,27 @@ class WizardDataConfigWidget(Container):
                     value=self.config.exchange or "binance",
                     id="wizard-exchange",
                     allow_blank=False,
-                )
-                yield Static("[dim]Choose crypto exchange[/dim]", classes="field-hint")
-
-            with Vertical():
-                yield Label("Symbol:")
-                yield Input(
+                    classes="wizard-select",
+                ),
+                Static("[dim]Choose crypto exchange[/dim]", classes="field-hint"),
+            ),
+            Vertical(
+                Label("Symbol:"),
+                Input(
                     placeholder="BTC/USDT",
-                    value=self.config.symbol,
+                    value=self.config.symbol or "",
                     id="wizard-symbol",
-                )
-                yield Static("[dim]Format: BASE/QUOTE[/dim]", classes="field-hint")
+                ),
+                Static("[dim]Format: BASE/QUOTE (e.g., BTC/USDT)[/dim]", classes="field-hint"),
+            ),
+            classes="wizard-row",
+        )
 
         # Row 2: Timeframe and Candles
-        with Horizontal(classes="wizard-row"):
-            with Vertical():
-                yield Label("Timeframe:")
-                yield Select(
+        yield Horizontal(
+            Vertical(
+                Label("Timeframe:"),
+                Select(
                     [
                         ("1 Minute", "1m"),
                         ("5 Minutes", "5m"),
@@ -99,41 +99,54 @@ class WizardDataConfigWidget(Container):
                     value=self.config.timeframe or "1d",
                     id="wizard-timeframe",
                     allow_blank=False,
-                )
-                yield Static("[dim]Candle interval[/dim]", classes="field-hint")
-
-            with Vertical():
-                yield Label("Candles:")
-                yield Input(
+                    classes="wizard-select",
+                ),
+                Static("[dim]Candle interval[/dim]", classes="field-hint"),
+            ),
+            Vertical(
+                Label("Candles:"),
+                Input(
                     value=str(self.config.limit) if self.config.limit else "1000",
                     id="wizard-limit",
-                )
-                yield Static("[dim]Number of candles[/dim]", classes="field-hint")
+                ),
+                Static("[dim]Number of candles (50-5000 recommended)[/dim]", classes="field-hint"),
+            ),
+            classes="wizard-row",
+        )
 
         # Date Range Section
-        yield Static("[bold]Date Range (Optional)[/bold]", classes="step-title")
+        yield Static(
+            "[bold]📅 Date Range (Optional - overrides candle count)[/bold]",
+            classes="step-title",
+        )
         yield Static(
             "[dim]Leave empty to use candle count, or specify dates for exact period[/dim]",
             classes="step-hint",
         )
 
         # Date Range Row
-        with Horizontal(classes="wizard-row", id="wizard-date-range-row"):
-            with Vertical():
-                yield Label("Start Date (YYYY-MM-DD):")
-                yield Input(
-                    value=self.config.start_date or "2020-01-01",
+        yield Horizontal(
+            Vertical(
+                Label("Start Date (YYYY-MM-DD):"),
+                Input(
+                    placeholder="2020-01-01",
+                    value=self.config.start_date or "",
                     id="wizard-start-date",
-                )
-                yield Static("[dim]Optional start date[/dim]", classes="field-hint")
-
-            with Vertical():
-                yield Label("End Date (YYYY-MM-DD):")
-                yield Input(
-                    value=self.config.end_date or "2024-01-01",
+                ),
+                Static("[dim]Optional start date[/dim]", classes="field-hint"),
+            ),
+            Vertical(
+                Label("End Date (YYYY-MM-DD):"),
+                Input(
+                    placeholder="2024-01-01",
+                    value=self.config.end_date or "",
                     id="wizard-end-date",
-                )
-                yield Static("[dim]Optional end date[/dim]", classes="field-hint")
+                ),
+                Static("[dim]Optional end date[/dim]", classes="field-hint"),
+            ),
+            classes="wizard-row",
+            id="wizard-date-range-row",
+        )
 
 
 class WizardStrategyConfigWidget(Container):
@@ -152,20 +165,21 @@ class WizardStrategyConfigWidget(Container):
             classes="step-hint",
         )
 
-        with Horizontal(classes="wizard-row"):
-            with Vertical():
-                yield Label("Strategy:")
-                yield Select(
+        yield Horizontal(
+            Vertical(
+                Label("Strategy:"),
+                Select(
                     self.available_strategies,
                     value=self.config.strategy_name,
                     id="wizard-strategy",
                     allow_blank=False,
-                )
-                yield Static("[dim]Trading algorithm to test[/dim]", classes="field-hint")
-
-            with Vertical():
-                yield Label("Engine:")
-                yield Select(
+                    classes="wizard-select",
+                ),
+                Static("[dim]Trading algorithm to test[/dim]", classes="field-hint"),
+            ),
+            Vertical(
+                Label("Engine:"),
+                Select(
                     [
                         ("Custom (Default)", "custom"),
                         ("Backtrader", "backtrader"),
@@ -174,8 +188,12 @@ class WizardStrategyConfigWidget(Container):
                     value=self.config.engine or "custom",
                     id="wizard-engine",
                     allow_blank=False,
-                )
-                yield Static("[dim]VectorBT is 10-100x faster[/dim]", classes="field-hint")
+                    classes="wizard-select",
+                ),
+                Static("[dim]VectorBT is 10-100x faster[/dim]", classes="field-hint"),
+            ),
+            classes="wizard-row",
+        )
 
         # Dynamic parameters panel container
         yield Container(id="wizard-params-container")
@@ -195,11 +213,13 @@ class WizardActionWidget(Container):
             classes="step-hint",
         )
 
-        with Horizontal():
-            yield Button("▶ Run Backtest", id="wizard-run", variant="success")
-            yield Button("📊 Generate Charts", id="wizard-charts", variant="primary")
-            yield Button("💾 Save as Template", id="wizard-save-template")
-            yield Button("🔄 Reset", id="wizard-reset")
+        yield Horizontal(
+            Button("▶ Run Backtest", id="wizard-run", variant="success"),
+            Button("📊 Generate Charts", id="wizard-charts", variant="primary"),
+            Button("💾 Save as Template", id="wizard-save-template"),
+            Button("🔄 Reset", id="wizard-reset"),
+            classes="wizard-button-row",
+        )
 
 
 class WizardResultsWidget(Container):
@@ -210,11 +230,16 @@ class WizardResultsWidget(Container):
 
     def compose(self):
         """Compose results display widgets."""
-        yield Static("[bold]Results[/bold]")
+        yield Static("[bold]📈 Results[/bold]", classes="step-title")
         yield Container(id="wizard-progress-container")  # For spinner or progress bar
 
-        with ScrollableContainer(id="wizard-results-scroll"):
-            yield Static("", id="wizard-results")
+        yield ScrollableContainer(
+            Static(
+                "[dim]Run a backtest to see results here...[/dim]",
+                id="wizard-results",
+            ),
+            id="wizard-results-scroll",
+        )
 
     def display_results(self, results: dict) -> None:
         """Display backtest results in formatted table."""
@@ -325,7 +350,6 @@ class WizardResultsWidget(Container):
         with console.capture() as capture:
             console.print(results_table)
 
-        results_widget = self.query_one("#wizard-results", Static)
+        results_widget = self.query_one("#wizard-results")
         results_widget.update(capture.get())
         logger.info("Backtest results displayed successfully")
-

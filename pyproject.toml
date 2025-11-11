@@ -33,11 +33,15 @@ dependencies = [
     "tensorflow>=2.20.0; python_version<='3.13'",
     "PyPortfolioOpt>=1.5.5",
     "cvxpy>=1.4.0",
+    # API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
 ]
 
 [project.scripts]
 tui = "trading_bot.interfaces.tui:main"
 trading-bot = "trading_bot.interfaces.cli:cli"
+api = "trading_bot.api.main:main"
 
 [project.optional-dependencies]
 dev = [

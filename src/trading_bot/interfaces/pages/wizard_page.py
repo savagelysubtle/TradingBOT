@@ -138,7 +138,7 @@ class WizardPage(BasePage):
         logger.debug("Syncing select widget values with configuration")
         try:
             # Set exchange - ensure default if missing, then sync widget
-            exchange_select = self.app.query_one("#wizard-exchange", Select)
+            exchange_select = self.app.query_one("#wizard-exchange")
             exchange_value = self.backtest_config.exchange or "binance"
             if not self.backtest_config.exchange:
                 self.backtest_config.update(exchange=exchange_value)
@@ -156,7 +156,7 @@ class WizardPage(BasePage):
                 logger.debug(f"Set exchange Select to: {exchange_value}")
 
             # Set timeframe - ensure default if missing, then sync widget
-            timeframe_select = self.app.query_one("#wizard-timeframe", Select)
+            timeframe_select = self.app.query_one("#wizard-timeframe")
             timeframe_value = self.backtest_config.timeframe or "1d"
             if not self.backtest_config.timeframe:
                 self.backtest_config.update(timeframe=timeframe_value)
@@ -174,7 +174,7 @@ class WizardPage(BasePage):
                 logger.debug(f"Set timeframe Select to: {timeframe_value}")
 
             # Set strategy - sync if config has value and widget doesn't match
-            strategy_select = self.app.query_one("#wizard-strategy", Select)
+            strategy_select = self.app.query_one("#wizard-strategy")
             if self.backtest_config.strategy_name:
                 current_value = strategy_select.value
                 is_blank = (
@@ -188,7 +188,7 @@ class WizardPage(BasePage):
                     strategy_select.refresh()
 
             # Set engine - ensure default if missing, then sync widget
-            engine_select = self.app.query_one("#wizard-engine", Select)
+            engine_select = self.app.query_one("#wizard-engine")
             engine_value = self.backtest_config.engine or "custom"
             if not self.backtest_config.engine:
                 self.backtest_config.update(engine=engine_value)
@@ -288,7 +288,7 @@ class WizardPage(BasePage):
             progress_text = f"{progress_bar}  [bold]Step {step} of 3:[/bold] {step_text}"
 
             # Update the progress widget
-            progress_widget = self.app.query_one("#wizard-progress", Static)
+            progress_widget = self.app.query_one("#wizard-progress")
             progress_widget.update(progress_text)
         except Exception as e:
             logger.debug(f"Failed to update wizard progress: {e}")
@@ -465,11 +465,19 @@ class WizardPage(BasePage):
     async def handle_run_backtest(self) -> None:
         """Handle run backtest from wizard."""
         logger.info("Starting backtest from wizard")
-        results_display = self.app.query_one("#wizard-results", Static)
+        results_display = self.app.query_one("#wizard-results")
         progress_container = self.app.query_one("#wizard-progress-container")
 
         # Clear any existing progress widgets
         progress_container.remove_children()
+
+        # Remove any existing progress bar with this ID to avoid duplicate ID error
+        try:
+            existing_bar = self.app.query_one("#wizard-progress-bar")
+            existing_bar.remove()
+        except Exception:
+            # Widget doesn't exist, which is fine
+            pass
 
         try:
             # Update config from inputs
@@ -516,7 +524,7 @@ class WizardPage(BasePage):
             # Get strategy parameters
             try:
                 logger.debug("Getting strategy parameters from panel")
-                params_panel = self.app.query_one("#wizard-params", StrategyParametersPanel)
+                params_panel = self.app.query_one("#wizard-params")
                 params = params_panel.get_parameters()
                 logger.debug(f"Strategy parameters: {params}")
                 self.backtest_config.update(strategy_params=params)
@@ -808,7 +816,7 @@ class WizardPage(BasePage):
                 self.app.history_sidebar.refresh_runs()
 
             # Display results
-            results_widget = self.app.query_one("#wizard-results-section", "WizardResultsWidget")
+            results_widget = self.app.query_one("#wizard-results-section")
             results_widget.display_results(results)
 
             # Warn if no trades
@@ -914,17 +922,17 @@ class WizardPage(BasePage):
         """Synchronize backtest_config from wizard input widgets."""
         logger.debug("Syncing configuration from wizard inputs")
         try:
-            limit_value = self.app.query_one("#wizard-limit", Input).value
+            limit_value = self.app.query_one("#wizard-limit").value
             limit = int(limit_value) if limit_value else 365
 
-            start_date_value = self.app.query_one("#wizard-start-date", Input).value
-            end_date_value = self.app.query_one("#wizard-end-date", Input).value
+            start_date_value = self.app.query_one("#wizard-start-date").value
+            end_date_value = self.app.query_one("#wizard-end-date").value
 
-            exchange_value = str(self.app.query_one("#wizard-exchange", Select).value)
-            symbol_value = self.app.query_one("#wizard-symbol", Input).value
-            timeframe_value = str(self.app.query_one("#wizard-timeframe", Select).value)
-            strategy_value = str(self.app.query_one("#wizard-strategy", Select).value)
-            engine_value = str(self.app.query_one("#wizard-engine", Select).value)
+            exchange_value = str(self.app.query_one("#wizard-exchange").value)
+            symbol_value = self.app.query_one("#wizard-symbol").value
+            timeframe_value = str(self.app.query_one("#wizard-timeframe").value)
+            strategy_value = str(self.app.query_one("#wizard-strategy").value)
+            engine_value = str(self.app.query_one("#wizard-engine").value)
 
             logger.debug(
                 f"Syncing config: exchange={exchange_value}, symbol={symbol_value}, timeframe={timeframe_value}, strategy={strategy_value}, engine={engine_value}, limit={limit}"

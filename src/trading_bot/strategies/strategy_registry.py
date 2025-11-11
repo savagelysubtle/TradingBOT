@@ -179,6 +179,27 @@ class StrategyRegistry:
                 category="ml",
             )
 
+        # Multi-Indicator Strategy
+        try:
+            from trading_bot.strategies.multi_indicator_strategy import MultiIndicatorStrategy
+
+            self._register_strategy(
+                name="multi_indicator",
+                display_name="Multi-Indicator Confirmation",
+                strategy_class=MultiIndicatorStrategy,
+                available=True,
+                category="advanced",
+            )
+        except ImportError:
+            logger.debug("Multi-Indicator strategy not available")
+            self._register_strategy(
+                name="multi_indicator",
+                display_name="Multi-Indicator Confirmation",
+                strategy_class=None,  # type: ignore[arg-type]
+                available=False,
+                category="advanced",
+            )
+
     def _register_strategy(
         self,
         name: str,

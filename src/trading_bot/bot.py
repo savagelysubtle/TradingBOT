@@ -1,9 +1,9 @@
 """Main trading bot orchestrator."""
 
 import logging
-from typing import Optional
 
 import pandas as pd
+
 from trading_bot.backtesting.engine import BacktestEngine
 from trading_bot.broker.base import BaseBroker
 from trading_bot.config import TradingConfig, load_config
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class TradingBot:
     """Main trading bot orchestrator."""
 
-    def __init__(self, config: Optional[TradingConfig] = None):
+    def __init__(self, config: TradingConfig | None = None):
         """Initialize trading bot.
 
         Args:
@@ -41,7 +41,9 @@ class TradingBot:
             log_level=self.config.log_level,
             log_file=self.config.log_file,
         )
-        logger.info(f"TradingBot configuration: data_provider={self.config.data_provider}, exchange={self.config.exchange_id}")
+        logger.info(
+            f"TradingBot configuration: data_provider={self.config.data_provider}, exchange={self.config.exchange_id}"
+        )
 
         # Initialize data fetcher based on provider
         if self.config.data_provider.lower() == "ccxt":
@@ -54,7 +56,9 @@ class TradingBot:
                 secret=self.config.exchange_secret,
                 sandbox=self.config.exchange_sandbox,
             )
-            logger.info(f"CCXTDataFetcher initialized: exchange={self.config.exchange_id}, sandbox={self.config.exchange_sandbox}")
+            logger.info(
+                f"CCXTDataFetcher initialized: exchange={self.config.exchange_id}, sandbox={self.config.exchange_sandbox}"
+            )
         else:
             logger.debug("Initializing DataFetcher (yfinance)")
             self.data_fetcher = DataFetcher(
@@ -63,7 +67,7 @@ class TradingBot:
             )
             logger.info("DataFetcher initialized")
 
-        self.broker: Optional[BaseBroker] = None
+        self.broker: BaseBroker | None = None
         logger.info("TradingBot initialization complete")
 
     def set_broker(self, broker: BaseBroker) -> None:
@@ -80,13 +84,13 @@ class TradingBot:
         self,
         strategy: BaseStrategy,
         symbol: str,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        period: Optional[str] = "1y",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        period: str | None = "1y",
         timeframe: str = "1d",
         limit: int = 1000,
-        use_backtrader: Optional[bool] = None,
-        data: Optional[pd.DataFrame] = None,  # type: ignore[type-arg]
+        use_backtrader: bool | None = None,
+        data: pd.DataFrame | None = None,  # type: ignore[type-arg]
     ) -> dict:
         """Run a backtest on a strategy.
 
@@ -123,20 +127,24 @@ class TradingBot:
             else:
                 # yfinance fetcher
                 data = self.data_fetcher.fetch_ohlcv(
-                    symbol,
+                    symbol=symbol,
                     start_date=start_date,
                     end_date=end_date,
                     period=period,
                 )
+
+        # Validate data
+        if data is None or data.empty:
+            raise ValueError(f"No data available for symbol {symbol}")
 
         # Choose backtesting engine
         use_bt = use_backtrader
         if use_bt is None:
             engine_name = self.config.backtest_engine.lower()
             if engine_name == "vectorbt":
-                try:
+                if VectorBTEngine is not None:
                     use_vectorbt = True
-                except ImportError:
+                else:
                     logger.warning(
                         "VectorBT not available, falling back to custom engine. "
                         "Install with: uv add --optional vectorbt"
@@ -152,7 +160,9 @@ class TradingBot:
         if use_vectorbt:
             # Use VectorBT for ultra-fast vectorized backtesting
             if VectorBTEngine is None:
-                raise ImportError("VectorBT engine is not available. Install it with: uv add vectorbt")
+                raise ImportError(
+                    "VectorBT engine is not available. Install it with: uv add vectorbt"
+                )
             try:
                 engine = VectorBTEngine(initial_capital=self.config.initial_capital)
                 results = engine.run(strategy, data, symbol=symbol)
@@ -168,7 +178,9 @@ class TradingBot:
         elif use_bt:
             # Use Backtrader engine
             if BacktraderEngine is None:
-                raise ImportError("Backtrader engine is not available. Install it with: uv add backtrader")
+                raise ImportError(
+                    "Backtrader engine is not available. Install it with: uv add backtrader"
+                )
             engine = BacktraderEngine(initial_capital=self.config.initial_capital)
             results = engine.run(strategy, data, symbol=symbol)
             result_dir = engine.save_results(results, output_dir=self.config.results_dir)
@@ -201,7 +213,7 @@ class TradingBot:
         logger.info(f"Starting live trading for {strategy.name} on {symbol}")
 
         # Get recent data
-        data = self.broker.get_market_data(symbol, period="1mo")
+        data = self.broker.get_market_data(symbol, interval="1mo")
 
         # Generate signals
         data_with_signals = strategy.generate_signals(data)
@@ -255,4 +267,3 @@ class TradingBot:
             f"Signal: {latest_signal}, Price: ${current_price:.2f}, "
             f"Account: ${account['equity']:.2f}",
         )
-
