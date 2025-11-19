@@ -73,11 +73,14 @@ class BacktestEngine:
 
             # Check for buy signal
             if strategy.should_buy(data_with_signals, i) and shares == 0:
+                logger.info(f"BUY SIGNAL DETECTED at {current_date}, price={current_price:.4f}")
                 position_size = strategy.calculate_position_size(
                     current_price,
                     portfolio_value,
                 )
+                logger.info(f"Position size calculated: {position_size:.6f} shares, portfolio_value={portfolio_value:.2f}")
                 cost = position_size * current_price * (1 + self.commission + self.slippage)
+                logger.info(f"Trade cost: ${cost:.2f}, available cash: ${cash:.2f}")
 
                 if cost <= cash:
                     shares = position_size
@@ -91,12 +94,15 @@ class BacktestEngine:
                             "cost": cost,
                         },
                     )
-                    logger.debug(
-                        f"{current_date}: BUY {shares:.2f} shares @ ${current_price:.2f}",
+                    logger.info(
+                        f"TRADE EXECUTED: BUY {shares:.6f} shares @ ${current_price:.4f} (cost: ${cost:.2f})",
                     )
+                else:
+                    logger.warning(f"TRADE SKIPPED: Insufficient funds. Cost: ${cost:.2f}, Cash: ${cash:.2f}")
 
             # Check for sell signal
             elif strategy.should_sell(data_with_signals, i) and shares > 0:
+                logger.info(f"SELL SIGNAL DETECTED at {current_date}, price={current_price:.4f}, shares={shares:.6f}")
                 proceeds = shares * current_price * (1 - self.commission - self.slippage)
                 cash += proceeds
 
@@ -111,8 +117,8 @@ class BacktestEngine:
                         "pnl": pnl,
                     },
                 )
-                logger.debug(
-                    f"{current_date}: SELL {shares:.2f} shares @ ${current_price:.2f} "
+                logger.info(
+                    f"TRADE EXECUTED: SELL {shares:.6f} shares @ ${current_price:.4f} "
                     f"(PnL: ${pnl:.2f})",
                 )
                 shares = 0.0

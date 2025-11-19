@@ -32,7 +32,7 @@ dependencies = [
     "lightgbm>=4.1.0",
     "tensorflow>=2.20.0; python_version<='3.13'",
     "PyPortfolioOpt>=1.5.5",
-    "cvxpy>=1.4.0",
+    "cvxpy>=1.4.0; python_version>='3.13.4'",
     # API
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
@@ -50,8 +50,11 @@ dev = [
 ]
 gpu = [
     # GPU Acceleration for Monte Carlo simulations
-    # CuPy doesn't support Python 3.14 yet (only 3.9-3.13)
-    # Use with Python 3.13 for GPU acceleration
+    # CuPy 13.6.0 on PyPI only has wheels for Python 3.9-3.13 (not 3.14)
+    # Conda-forge has Python 3.14 builds, but PyPI doesn't yet
+    # Use with Python 3.13.4 for GPU acceleration (Python 3.14 falls back to CPU)
+    # Note: Match CUDA version to your driver (check with nvidia-smi)
+    # Driver 581.80 supports CUDA 13.x, so use cupy-cuda13x
     "cupy-cuda13x>=13.6.0; python_version<='3.13'",
 ]
 

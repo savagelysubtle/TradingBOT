@@ -50,6 +50,11 @@ class EnhancedProgressBar(Vertical):
         margin-top: 1;
         align: center middle;
         height: 3;
+        min-width: 12;
+    }
+
+    EnhancedProgressBar .cancel-button:focus {
+        border: solid $error;
     }
     """
 
@@ -89,7 +94,7 @@ class EnhancedProgressBar(Vertical):
 
         if self.can_cancel:
             yield Button(
-                "Cancel", variant="error", classes="cancel-button", id="btn-cancel-progress"
+                "❌ Cancel Simulation", variant="error", classes="cancel-button", id="btn-cancel-progress"
             )
 
     def on_mount(self) -> None:
@@ -218,6 +223,14 @@ class EnhancedProgressBar(Vertical):
         except Exception:
             pass
 
+        # Re-enable cancel button for future use
+        try:
+            cancel_btn = self.query_one("#btn-cancel-progress", Button)
+            cancel_btn.disabled = False
+            cancel_btn.label = "Cancel"
+        except Exception:
+            pass
+
         logger.debug(f"Progress marked with error: {message}")
 
     @on(Button.Pressed, "#btn-cancel-progress")
@@ -228,6 +241,13 @@ class EnhancedProgressBar(Vertical):
             try:
                 self._cancel_callback()
                 self.stage = "Cancelling..."
+                # Disable button during cancellation
+                try:
+                    cancel_btn = self.query_one("#btn-cancel-progress", Button)
+                    cancel_btn.disabled = True
+                    cancel_btn.label = "Cancelling..."
+                except Exception:
+                    pass
             except Exception as e:
                 logger.exception(f"Cancel callback failed: {e}")
         else:

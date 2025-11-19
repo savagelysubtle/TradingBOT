@@ -33,18 +33,34 @@ support)
 
 ### Installation
 
+**Dual-Python Setup (Recommended):**
+
+This project supports dual-Python mode for optimal performance:
+
 ```bash
-# Install dependencies with Python 3.14 (free-threading mode)
+# 1. Install main dependencies with Python 3.14 (free-threading for main bot)
 # Must have TA-Lib C library installed first - see INSTALLATION.md
 uv sync --python 3.14 --prerelease=allow
 
-# Install with Python 3.13.4 (GPU acceleration mode)
+# 2. Install GPU dependencies with Python 3.13.4 (for Monte Carlo GPU acceleration)
 # Note: CuPy doesn't support Python 3.14 yet, use 3.13.4 for GPU support
 uv sync --extra gpu --python 3.13.4 --prerelease=allow
 
-# Monte Carlo simulations:
-# - Python 3.14: CPU-only (no GPU acceleration)
-# - Python 3.13.4: GPU-accelerated with CuPy/CUDA (10-100x faster)
+# Usage:
+# - Python 3.14: Main bot operations (backtesting, live trading, TUI) - free-threading enabled
+# - Python 3.13.4: Monte Carlo simulations - GPU-accelerated with CuPy/CUDA (10-100x faster)
+```
+
+**Single-Python Setup (Alternative):**
+
+If you only need one Python version:
+
+```bash
+# Option A: Python 3.14 only (CPU-only Monte Carlo, free-threading for main bot)
+uv sync --python 3.14 --prerelease=allow
+
+# Option B: Python 3.13.4 only (GPU-accelerated Monte Carlo, no free-threading)
+uv sync --extra gpu --python 3.13.4 --prerelease=allow
 ```
 
 ### Running the Application
@@ -342,11 +358,22 @@ results = parallel_backtest(backtest_symbol, symbols, max_workers=4)
 Monte Carlo simulation helps assess strategy robustness and risk by running
 hundreds/thousands of simulations with different scenarios.
 
+**⚠️ Dual-Python Setup for Optimal Performance:**
+
+This project supports **dual-Python mode** to maximize performance:
+
+- **Python 3.14**: Use for main bot operations (backtesting, live trading, TUI) - enables free-threading for true parallelism
+- **Python 3.13.4**: Use for Monte Carlo simulations - enables GPU acceleration with CuPy (10-100x faster)
+
 **GPU Acceleration Note:**
 
-- Python 3.14: CPU-only (CuPy doesn't support 3.14 yet)
+- Python 3.14: CPU-only (CuPy doesn't support 3.14 yet) - automatically falls back to NumPy
 - Python 3.13.4 + `--extra gpu`: GPU-accelerated with CUDA (10-100x faster)
-- Automatically falls back to NumPy if CuPy unavailable
+- **Important:** Match CuPy CUDA version to your driver (check with `nvidia-smi`)
+  - Driver supports CUDA 12.x → use `cupy-cuda12x` (default in pyproject.toml)
+  - Driver supports CUDA 13.x → update pyproject.toml to use `cupy-cuda13x`
+- The Monte Carlo engine will warn you if running on Python 3.14 without GPU
+- If you get "CUDA driver version is insufficient" error, check your driver's CUDA version and match CuPy accordingly
 
 **Three Simulation Methods:**
 
@@ -371,18 +398,39 @@ hundreds/thousands of simulations with different scenarios.
 **CLI Usage:**
 
 ```bash
-# Basic Monte Carlo (1000 bootstrap simulations)
-# Python 3.14: CPU-only
+# RECOMMENDED: Use helper script for GPU acceleration (Python 3.13.4)
+# Windows PowerShell:
+.\scripts\montecarlo-gpu.ps1 --symbol BTC/USDT --strategy talib_ma
+
+# Linux/Mac:
+./scripts/montecarlo-gpu.sh --symbol BTC/USDT --strategy talib_ma
+
+# Or manually specify Python version:
+# Python 3.14: CPU-only (for main bot operations)
 uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --strategy talib_ma
-# Python 3.13.4: GPU-accelerated (much faster)
+
+# Python 3.13.4: GPU-accelerated (10-100x faster for Monte Carlo)
 uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --strategy talib_ma
 
 # Specify method and number of simulations
-uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --method shuffle_trades -n 500
+uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --method shuffle_trades -n 500
 
 # With seed for reproducibility
-uv run --python 3.14 trading-bot montecarlo --symbol BTC/USDT --seed 42 -n 1000
+uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --seed 42 -n 1000
+
+# Force CPU-only mode (if GPU causes issues)
+uv run --python 3.13.4 trading-bot montecarlo --symbol BTC/USDT --strategy talib_ma --force-cpu
 ```
+
+**Cancellation:**
+
+Monte Carlo simulations can be cancelled gracefully:
+
+- **TUI**: Click the "❌ Cancel Simulation" button during simulation
+- **CLI/Terminal**: Press `Ctrl+C` to cancel (works in both TUI and CLI modes)
+- **Scripts**: Use the `--force-cpu` flag for CPU-only mode if GPU issues occur
+
+Cancellation is handled gracefully - the simulation will stop at the next checkpoint and clean up properly.
 
 **Python API:**
 

@@ -200,6 +200,48 @@ class StrategyRegistry:
                 category="advanced",
             )
 
+        # RSI Divergence Strategy
+        try:
+            from trading_bot.strategies.advanced_indicators import RSIDivergenceStrategy
+
+            self._register_strategy(
+                name="rsi_divergence",
+                display_name="RSI Divergence",
+                strategy_class=RSIDivergenceStrategy,
+                available=True,
+                category="advanced",
+            )
+        except ImportError:
+            logger.debug("RSI Divergence strategy not available")
+            self._register_strategy(
+                name="rsi_divergence",
+                display_name="RSI Divergence",
+                strategy_class=None,  # type: ignore[arg-type]
+                available=False,
+                category="advanced",
+            )
+
+        # Smart Money Flow Strategy
+        try:
+            from trading_bot.strategies.smart_money_flow import SmartMoneyFlowStrategy
+
+            self._register_strategy(
+                name="smart_money_flow",
+                display_name="Smart Money Flow",
+                strategy_class=SmartMoneyFlowStrategy,
+                available=True,
+                category="advanced",
+            )
+        except ImportError:
+            logger.debug("Smart Money Flow strategy not available")
+            self._register_strategy(
+                name="smart_money_flow",
+                display_name="Smart Money Flow",
+                strategy_class=None,  # type: ignore[arg-type]
+                available=False,
+                category="advanced",
+            )
+
     def _register_strategy(
         self,
         name: str,

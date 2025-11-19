@@ -187,6 +187,21 @@ class BollingerBandsStrategy(BaseStrategy):
             DataFrame with signals added
         """
         df = data.copy()
+
+        # Check if we have enough data for Bollinger Bands calculation
+        if len(df) < self.period:
+            logger.warning(
+                f"Insufficient data for Bollinger Bands: need {self.period} periods, got {len(df)}"
+            )
+            # Initialize with NaN values
+            df["bb_upper"] = np.nan
+            df["bb_middle"] = np.nan
+            df["bb_lower"] = np.nan
+            df["bb_width"] = np.nan
+            df["bb_percent"] = np.nan
+            df["signal"] = 0
+            return df
+
         close = df["close"].values.astype(np.float64)  # type: ignore[attr-defined]
 
         # Calculate Bollinger Bands
@@ -202,8 +217,19 @@ class BollingerBandsStrategy(BaseStrategy):
         df["bb_upper"] = upper
         df["bb_middle"] = middle
         df["bb_lower"] = lower
-        df["bb_width"] = (upper - lower) / middle
-        df["bb_percent"] = (close - lower) / (upper - lower)
+
+        # Calculate bandwidth with division by zero protection
+        bandwidth = np.zeros_like(upper)  # type: ignore[arg-defined]
+        mask = middle != 0
+        bandwidth[mask] = (upper[mask] - lower[mask]) / middle[mask]
+        df["bb_width"] = bandwidth
+
+        # Calculate %B with division by zero protection
+        percent_b = np.zeros_like(close)  # type: ignore[arg-defined]
+        band_range = upper - lower
+        mask = band_range != 0
+        percent_b[mask] = (close[mask] - lower[mask]) / band_range[mask]
+        df["bb_percent"] = percent_b
 
         # Calculate RSI if enabled
         if self.use_rsi:
@@ -372,6 +398,175 @@ class IchimokuStrategy(BaseStrategy):
         df.loc[sell_condition, "signal"] = -1
 
         return df
+
+    def calculate_position_size(
+        self,
+        price: float,
+        account_value: float,
+        risk_per_trade: float = 0.02,
+    ) -> float:
+        """Calculate position size."""
+        risk_amount = account_value * risk_per_trade
+        stop_loss_pct = 0.02
+        stop_loss_price = price * (1 - stop_loss_pct)
+        risk_per_share = price - stop_loss_price
+
+        if risk_per_share <= 0:
+            return 0.0
+
+        position_size = risk_amount / risk_per_share
+        max_position_value = account_value * 0.1
+        max_shares = max_position_value / price
+
+        return min(position_size, max_shares)
+
+
+
+class RSIDivergenceStrategy(BaseStrategy):
+    """RSI Divergence strategy - identifies potential reversals using RSI divergences."""
+
+    def __init__(
+        self,
+        rsi_period: int = 14,
+        overbought_level: int = 70,
+        oversold_level: int = 30,
+        divergence_lookback: int = 20,
+        min_divergence_strength: float = 0.5,
+    ):
+        """Initialize RSI Divergence strategy.
+
+        Args:
+            rsi_period: RSI calculation period
+            overbought_level: RSI level considered overbought
+            oversold_level: RSI level considered oversold
+            divergence_lookback: Number of periods to look back for divergence
+            min_divergence_strength: Minimum strength of divergence to trigger signal
+        """
+        super().__init__(
+            name="RSIDivergenceStrategy",
+            rsi_period=rsi_period,
+            overbought_level=overbought_level,
+            oversold_level=oversold_level,
+            divergence_lookback=divergence_lookback,
+            min_divergence_strength=min_divergence_strength,
+        )
+        self.rsi_period = rsi_period
+        self.overbought_level = overbought_level
+        self.oversold_level = oversold_level
+        self.divergence_lookback = divergence_lookback
+        self.min_divergence_strength = min_divergence_strength
+
+    def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:  # type: ignore[return]
+        """Generate trading signals using RSI divergence analysis.
+
+        Args:
+            data: DataFrame with OHLCV data
+
+        Returns:
+            DataFrame with signals added
+        """
+        df = data.copy()
+        logger.info(f"RSI Divergence: received data with {len(df)} rows, columns: {list(df.columns)}")
+
+        # Check if we have enough data
+        min_periods = self.rsi_period + self.divergence_lookback
+        logger.info(f"RSI Divergence: checking data sufficiency - need {min_periods} periods, got {len(df)}")
+        if len(df) < min_periods:
+            logger.warning(
+                f"Insufficient data for RSI Divergence: need {min_periods} periods, got {len(df)}"
+            )
+            df["signal"] = 0
+            return df
+
+        close = df["close"].values.astype(np.float64)  # type: ignore[attr-defined]
+
+        # Calculate RSI
+        rsi = talib.RSI(close, timeperiod=self.rsi_period)  # type: ignore[call-overload]
+        df["rsi"] = rsi
+
+        # Initialize signals
+        df["signal"] = 0
+
+        # Find bullish divergences (price makes lower low, RSI makes higher low)
+        for i in range(self.divergence_lookback, len(df)):
+            if pd.isna(rsi[i]) or pd.isna(close[i]):
+                continue
+
+            # Look for bearish divergence (price higher high, RSI lower high)
+            if rsi[i] > self.overbought_level:
+                # Check for bearish divergence in the last divergence_lookback periods
+                price_high_idx = df["high"].iloc[i - self.divergence_lookback:i].idxmax()
+                rsi_high_idx = df["rsi"].iloc[i - self.divergence_lookback:i].idxmax()
+
+                if price_high_idx != rsi_high_idx:
+                    # Check divergence strength
+                    price_range = df["high"].iloc[i - self.divergence_lookback:i].max() - df["high"].iloc[i - self.divergence_lookback:i].min()
+                    rsi_range = df["rsi"].iloc[i - self.divergence_lookback:i].max() - df["rsi"].iloc[i - self.divergence_lookback:i].min()
+
+                    if rsi_range > 0 and price_range > 0:
+                        divergence_ratio = rsi_range / price_range
+                        if divergence_ratio > self.min_divergence_strength:
+                            df.loc[df.index[i], "signal"] = -1  # Sell signal
+                            break
+
+            # Look for bullish divergence (price lower low, RSI higher low)
+            elif rsi[i] < self.oversold_level:
+                # Check for bullish divergence in the last divergence_lookback periods
+                price_low_idx = df["low"].iloc[i - self.divergence_lookback:i].idxmin()
+                rsi_low_idx = df["rsi"].iloc[i - self.divergence_lookback:i].idxmin()
+
+                if price_low_idx != rsi_low_idx:
+                    # Check divergence strength
+                    price_range = df["high"].iloc[i - self.divergence_lookback:i].max() - df["low"].iloc[i - self.divergence_lookback:i].min()
+                    rsi_range = df["rsi"].iloc[i - self.divergence_lookback:i].max() - df["rsi"].iloc[i - self.divergence_lookback:i].min()
+
+                    if rsi_range > 0 and price_range > 0:
+                        divergence_ratio = rsi_range / price_range
+                        if divergence_ratio > self.min_divergence_strength:
+                            df.loc[df.index[i], "signal"] = 1  # Buy signal
+                            break
+
+        return df
+
+    def get_parameter_schema(self) -> dict:  # type: ignore[return]
+        """Get parameter schema for this strategy."""
+        return {
+            "rsi_period": {
+                "type": "integer",
+                "default": 14,
+                "minimum": 2,
+                "maximum": 50,
+                "description": "RSI calculation period",
+            },
+            "overbought_level": {
+                "type": "integer",
+                "default": 70,
+                "minimum": 50,
+                "maximum": 90,
+                "description": "RSI level considered overbought",
+            },
+            "oversold_level": {
+                "type": "integer",
+                "default": 30,
+                "minimum": 10,
+                "maximum": 50,
+                "description": "RSI level considered oversold",
+            },
+            "divergence_lookback": {
+                "type": "integer",
+                "default": 20,
+                "minimum": 5,
+                "maximum": 50,
+                "description": "Periods to look back for divergence detection",
+            },
+            "min_divergence_strength": {
+                "type": "number",
+                "default": 0.5,
+                "minimum": 0.1,
+                "maximum": 2.0,
+                "description": "Minimum strength of divergence to trigger signal",
+            },
+        }
 
     def calculate_position_size(
         self,

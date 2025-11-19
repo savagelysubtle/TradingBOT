@@ -71,6 +71,9 @@ class VectorBTEngine:
         """
         logger.info(f"Running VectorBT backtest for {strategy.name} on {symbol}")
 
+        # Ensure data is sorted by datetime index (chronological order)
+        data = data.sort_index()
+
         # Generate signals using strategy
         data_with_signals = strategy.generate_signals(data)
 
@@ -97,12 +100,19 @@ class VectorBTEngine:
         stats = portfolio.stats()
 
         # Calculate buy-and-hold return
-        buy_hold_return = (
-            data_with_signals["close"].iloc[-1] - data_with_signals["close"].iloc[0]
-        ) / data_with_signals["close"].iloc[0]
+        first_close = data_with_signals["close"].iloc[0]
+        last_close = data_with_signals["close"].iloc[-1]
+        buy_hold_return = (last_close - first_close) / first_close
+        logger.info(f"Buy-hold calculation: first_close={first_close:.2f}, last_close={last_close:.2f}, return={buy_hold_return:.4f} ({buy_hold_return*100:.2f}%)")
+        logger.info(f"Data shape: {data_with_signals.shape}, date range: {data_with_signals.index[0]} to {data_with_signals.index[-1]}")
 
         # Get trade statistics
         trades = portfolio.trades.records_readable
+        logger.debug(f"VectorBT trades records: {len(trades)} entries")
+        if len(trades) > 0:
+            logger.debug(f"Trades columns: {list(trades.columns)}")
+            logger.debug(f"First few trades:\n{trades.head()}")
+
         winning_trades = (
             trades[trades["PnL"] > 0] if len(trades) > 0 else pd.DataFrame()  # type: ignore[call-overload]
         )
@@ -114,9 +124,13 @@ class VectorBTEngine:
         winning_count = len(winning_trades)
         losing_count = len(losing_trades)
 
+        logger.info(f"Trade statistics: total={total_trades}, winning={winning_count}, losing={losing_count}")
+
         win_rate = winning_count / total_trades if total_trades > 0 else 0.0
         avg_win = winning_trades["PnL"].mean() if len(winning_trades) > 0 else 0.0
         avg_loss = losing_trades["PnL"].mean() if len(losing_trades) > 0 else 0.0
+
+        logger.info(f"Trade stats: total={total_trades}, winning={winning_count}, losing={losing_count}, win_rate={win_rate:.4f}, win_rate_pct={win_rate*100:.2f}")
 
         # Extract key metrics from stats
         final_value = portfolio.value().iloc[-1]

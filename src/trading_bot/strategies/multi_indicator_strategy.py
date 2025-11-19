@@ -213,6 +213,116 @@ class MultiIndicatorStrategy(BaseStrategy):
 
         return df
 
+    def calculate_position_size(
+        self,
+        price: float,
+        account_value: float,
+        risk_per_trade: float = 0.02,
+    ) -> float:
+        """Calculate position size based on risk management."""
+        risk_amount = account_value * risk_per_trade
+        stop_loss_pct = 0.02
+        stop_loss_price = price * (1 - stop_loss_pct)
+        risk_per_share = price - stop_loss_price
+
+        if risk_per_share <= 0:
+            return 0.0
+
+        position_size = risk_amount / risk_per_share
+        max_position_value = account_value * 0.1
+        max_shares = max_position_value / price
+
+        return min(position_size, max_shares)
+
+    def get_parameter_schema(self) -> dict:  # type: ignore[return]
+        """Get parameter schema for this strategy."""
+        return {
+            "supertrend_period": {
+                "type": "integer",
+                "default": 10,
+                "minimum": 3,
+                "maximum": 50,
+                "description": "Supertrend ATR period",
+            },
+            "supertrend_multiplier": {
+                "type": "number",
+                "default": 3.0,
+                "minimum": 1.0,
+                "maximum": 5.0,
+                "description": "Supertrend ATR multiplier",
+            },
+            "rsi_period": {
+                "type": "integer",
+                "default": 14,
+                "minimum": 2,
+                "maximum": 50,
+                "description": "RSI calculation period",
+            },
+            "rsi_overbought": {
+                "type": "number",
+                "default": 70.0,
+                "minimum": 50.0,
+                "maximum": 90.0,
+                "description": "RSI overbought threshold",
+            },
+            "rsi_oversold": {
+                "type": "number",
+                "default": 30.0,
+                "minimum": 10.0,
+                "maximum": 50.0,
+                "description": "RSI oversold threshold",
+            },
+            "macd_fast": {
+                "type": "integer",
+                "default": 12,
+                "minimum": 5,
+                "maximum": 50,
+                "description": "MACD fast period",
+            },
+            "macd_slow": {
+                "type": "integer",
+                "default": 26,
+                "minimum": 10,
+                "maximum": 100,
+                "description": "MACD slow period",
+            },
+            "macd_signal": {
+                "type": "integer",
+                "default": 9,
+                "minimum": 5,
+                "maximum": 50,
+                "description": "MACD signal period",
+            },
+            "bb_period": {
+                "type": "integer",
+                "default": 20,
+                "minimum": 5,
+                "maximum": 50,
+                "description": "Bollinger Bands period",
+            },
+            "bb_std": {
+                "type": "number",
+                "default": 2.0,
+                "minimum": 1.0,
+                "maximum": 3.0,
+                "description": "Bollinger Bands standard deviation",
+            },
+            "volume_ma_period": {
+                "type": "integer",
+                "default": 20,
+                "minimum": 5,
+                "maximum": 50,
+                "description": "Volume moving average period",
+            },
+            "confirmation_threshold": {
+                "type": "number",
+                "default": 0.7,
+                "minimum": 0.1,
+                "maximum": 1.0,
+                "description": "Minimum confirmation score for signals",
+            },
+        }
+
     def get_parameter_ranges(self) -> dict[str, list[float]]:
         """Get parameter ranges for walk-forward optimization."""
         return {

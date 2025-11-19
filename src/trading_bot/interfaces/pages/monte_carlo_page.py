@@ -297,6 +297,17 @@ class MonteCarloPage(BasePage):
         self._cancel_requested = True
         self.app.notify("Cancelling simulation...", severity="warning")
 
+        # Update progress bar to show cancellation
+        if self._progress_bar:
+            self._progress_bar.stage = "Cancelling simulation..."
+            try:
+                # Disable cancel button during cancellation
+                cancel_btn = self._progress_bar.query_one("#btn-cancel-progress", Button)
+                cancel_btn.disabled = True
+                cancel_btn.label = "Cancelling..."
+            except Exception:
+                pass
+
     def _update_progress(
         self, completed: int, total: int, stage: int = 2, eta_seconds: float | None = None
     ) -> None:
@@ -314,9 +325,9 @@ class MonteCarloPage(BasePage):
         # Calculate progress within current stage
         # Stage 0: Preparing (0-20%)
         # Stage 1: Fetching (20-25%)
-        # Stage 2: Simulating (25-90%)
-        # Stage 3: Aggregating (90-95%)
-        # Stage 4: Complete (95-100%)
+        # Stage 2: Simulating (25-95%) - increased range for better visibility
+        # Stage 3: Aggregating (95-98%)
+        # Stage 4: Complete (98-100%)
 
         if stage == 0:  # Preparing
             self._progress_bar.set_stage(0)
@@ -326,7 +337,8 @@ class MonteCarloPage(BasePage):
             self._progress_bar.set_progress(22.5)
         elif stage == 2:  # Simulating
             self._progress_bar.set_stage(2)
-            sim_progress = (completed / total) * 65.0  # 65% of bar for simulation
+            # Allocate more progress range to simulation stage (25-95% instead of 25-90%)
+            sim_progress = (completed / total) * 70.0  # 70% of bar for simulation
             self._progress_bar.set_progress(25.0 + sim_progress)
 
             # Update ETA in stage label
@@ -339,7 +351,7 @@ class MonteCarloPage(BasePage):
                 self._progress_bar.stage = stage_text
         elif stage == 3:  # Aggregating
             self._progress_bar.set_stage(3)
-            self._progress_bar.set_progress(92.5)
+            self._progress_bar.set_progress(96.0)
         elif stage == 4:  # Complete
             self._progress_bar.set_stage(4)
             self._progress_bar.set_progress(100.0)
@@ -349,7 +361,7 @@ class MonteCarloPage(BasePage):
 
     async def handle_run_monte_carlo(self) -> None:
         """Run Monte Carlo simulation with enhanced progress tracking."""
-        logger.info("Starting Monte Carlo simulation")
+        logger.info("Starting Monte Carlo simulation - Use Cancel button or press Ctrl+C to stop")
         status_widget = self.app.query_one("#mc-status", Static)
 
         # Reset cancellation flag
@@ -542,14 +554,25 @@ class MonteCarloPage(BasePage):
                 """Update progress during simulation."""
                 nonlocal last_update_time
 
-                # Update every 10 simulations or every 0.5 seconds
+                # Update more frequently for better tracking
+                # Every 5 simulations, every 0.2 seconds, or every 1% progress increment
                 current_time = time.time()
-                if completed % 10 == 0 or (current_time - last_update_time) >= 0.5:
+                progress_percent = (completed / n_sims) * 100
+                last_progress_percent = ((completed - 1) / n_sims) * 100 if completed > 0 else 0
+
+                # Update if significant progress made or time elapsed
+                if (completed % 5 == 0 or
+                    (current_time - last_update_time) >= 0.2 or
+                    int(progress_percent) > int(last_progress_percent)):
+
                     elapsed = current_time - start_time
                     if completed > 0:
                         rate = completed / elapsed
                         remaining = (n_sims - completed) / rate if rate > 0 else 0
                         self._update_progress(completed, n_sims, stage=2, eta_seconds=remaining)
+                    else:
+                        # Initial progress update
+                        self._update_progress(completed, n_sims, stage=2, eta_seconds=None)
                     last_update_time = current_time
 
                 # Check for cancellation
@@ -568,7 +591,15 @@ class MonteCarloPage(BasePage):
             except KeyboardInterrupt:
                 status_widget.update("[yellow]⏹️ Simulation cancelled by user[/yellow]")
                 if self._progress_bar:
-                    self._progress_bar.error("Cancelled by user")
+                    self._progress_bar.stage = "Simulation cancelled"
+                    self._progress_bar.progress = 0.0
+                    try:
+                        # Re-enable cancel button for future use
+                        cancel_btn = self._progress_bar.query_one("#btn-cancel-progress", Button)
+                        cancel_btn.disabled = False
+                        cancel_btn.label = "Cancel"
+                    except Exception:
+                        pass
                 logger.info("Simulation cancelled by user")
                 return
 
@@ -580,7 +611,15 @@ class MonteCarloPage(BasePage):
             if self._cancel_requested:
                 status_widget.update("[yellow]⏹️ Simulation cancelled[/yellow]")
                 if self._progress_bar:
-                    self._progress_bar.error("Cancelled by user")
+                    self._progress_bar.stage = "Simulation cancelled"
+                    self._progress_bar.progress = 0.0
+                    try:
+                        # Re-enable cancel button for future use
+                        cancel_btn = self._progress_bar.query_one("#btn-cancel-progress", Button)
+                        cancel_btn.disabled = False
+                        cancel_btn.label = "Cancel"
+                    except Exception:
+                        pass
                 return
 
             # Stage 3: Aggregating results

@@ -2,9 +2,11 @@
 
 import logging
 import time
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from trading_bot.api.bot_instance import get_bot
@@ -29,21 +31,44 @@ class BacktestRequest(BaseModel):
     strategy_params: dict[str, Any] | None = None
 
 
-@router.post("/backtest/run")
+class BacktestResponse(BaseModel):
+    """Backtest response model."""
+
+    status: str
+    results: dict[str, Any]
+    strategy: str
+    symbol: str
+    execution_time_seconds: float
+    request_id: str
+    timestamp: int
+
+
+@router.post("/backtest/run", response_model=BacktestResponse)
 async def run_backtest(request: BacktestRequest):
     """Run a backtest."""
     backtest_start_time = time.time()
-    logger.info(
-        f"Backtest request received: strategy={request.strategy_name}, "
-        f"symbol={request.symbol}, engine={request.engine}, timeframe={request.timeframe}, "
-        f"limit={request.limit}, start_date={request.start_date}, end_date={request.end_date}"
-    )
-    logger.debug(f"Strategy parameters: {request.strategy_params}")
+    logger.info("=" * 60)
+    logger.info("BACKTEST ENDPOINT CALLED")
+    logger.info("=" * 60)
+    logger.info(f"Request parameters:")
+    logger.info(f"  - strategy: {request.strategy_name}")
+    logger.info(f"  - symbol: {request.symbol}")
+    logger.info(f"  - engine: {request.engine}")
+    logger.info(f"  - timeframe: {request.timeframe}")
+    logger.info(f"  - limit: {request.limit}")
+    logger.info(f"  - start_date: {request.start_date}")
+    logger.info(f"  - end_date: {request.end_date}")
+    logger.info(f"  - strategy_params: {request.strategy_params}")
 
     try:
+        logger.info("Step 1: Getting bot instance...")
         bot = get_bot()
+        logger.info(f"Step 1: ✅ Bot instance retrieved: {type(bot)}")
     except RuntimeError as e:
-        logger.error(f"Bot instance not initialized: {e}")
+        logger.error("=" * 60)
+        logger.error("ERROR: Bot instance not initialized")
+        logger.error(f"Error details: {e}")
+        logger.error("=" * 60)
         raise HTTPException(
             status_code=503,
             detail="Bot instance not initialized. Please wait for server to fully start.",
@@ -51,37 +76,54 @@ async def run_backtest(request: BacktestRequest):
 
     try:
         # Validate request
+        logger.info("Step 2: Validating request parameters...")
         if not request.strategy_name:
             logger.warning("Backtest request missing strategy_name")
             raise HTTPException(status_code=400, detail="strategy_name is required")
         if not request.symbol:
             logger.warning("Backtest request missing symbol")
             raise HTTPException(status_code=400, detail="symbol is required")
+        logger.info("Step 2: ✅ Request parameters validated")
 
         # Get strategy class
-        logger.debug(f"Getting strategy class for: {request.strategy_name}")
+        logger.info("Step 3: Getting strategy class from registry...")
+        logger.debug(f"Strategy name: {request.strategy_name}")
         strategy_class = _strategy_registry.get_strategy_class(request.strategy_name)
         if strategy_class is None:
-            logger.warning(f"Strategy '{request.strategy_name}' not found or not available")
+            logger.error("=" * 60)
+            logger.error(f"ERROR: Strategy '{request.strategy_name}' not found or not available")
+            logger.error("Available strategies may not be loaded")
+            logger.error("=" * 60)
             raise HTTPException(
                 status_code=404,
                 detail=f"Strategy '{request.strategy_name}' not found or not available",
             )
+        logger.info(f"Step 3: ✅ Strategy class retrieved: {strategy_class}")
 
         # Create strategy instance using the same logic as wizard_logic
+        logger.info("Step 4: Creating strategy instance...")
         params = request.strategy_params or {}
-        logger.debug(f"Creating strategy instance with params: {params}")
+        logger.debug(f"Strategy parameters: {params}")
         try:
             strategy = _create_strategy_instance(request.strategy_name, strategy_class, params)
-            logger.info(f"Strategy '{request.strategy_name}' instance created successfully")
+            logger.info(f"Step 4: ✅ Strategy '{request.strategy_name}' instance created successfully")
+            logger.debug(f"Strategy type: {type(strategy)}")
         except ValueError as e:
-            logger.error(f"Invalid strategy parameters: {e}")
+            logger.exception("=" * 60)
+            logger.exception("ERROR: Invalid strategy parameters")
+            logger.exception(f"Exception type: {type(e).__name__}")
+            logger.exception(f"Exception message: {str(e)}")
+            logger.exception("=" * 60)
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid strategy parameters: {e!s}",
             ) from e
         except Exception as e:
-            logger.error(f"Failed to create strategy instance: {e}")
+            logger.exception("=" * 60)
+            logger.exception("ERROR: Failed to create strategy instance")
+            logger.exception(f"Exception type: {type(e).__name__}")
+            logger.exception(f"Exception message: {str(e)}")
+            logger.exception("=" * 60)
             raise HTTPException(
                 status_code=400,
                 detail=f"Failed to create strategy: {e!s}",
@@ -150,12 +192,15 @@ async def run_backtest(request: BacktestRequest):
             f"Total time: {total_time:.2f}s | "
             f"Results: {len(serializable_results)} metrics"
         )
+
         return {
             "status": "success",
             "results": serializable_results,
             "strategy": request.strategy_name,
             "symbol": request.symbol,
             "execution_time_seconds": round(total_time, 2),
+            "request_id": str(uuid.uuid4()),  # Unique identifier for this request
+            "timestamp": int(time.time()),  # Unix timestamp
         }
     except HTTPException:
         raise
@@ -174,6 +219,7 @@ def _create_strategy_instance(
 
     Uses the same logic as wizard_logic.py to ensure consistency.
     """
+    logger.debug(f"_create_strategy_instance called: strategy={strategy_name}, params={params}")
     try:
         if strategy_name == "ma_crossover":
             return strategy_class(  # type: ignore[call-arg]

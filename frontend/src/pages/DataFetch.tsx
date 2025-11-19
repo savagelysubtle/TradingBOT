@@ -22,15 +22,122 @@ export default function DataFetch() {
   const [error, setError] = useState<string | null>(null);
 
   const handleFetch = async () => {
+    console.log(`[DataFetch] 📊 Starting data fetch for ${symbol}`);
+    const fetchStartTime = Date.now();
+
+    // Log data fetch configuration
+    console.log("[DataFetch] 📋 Data fetch configuration:");
+    console.log(`  - Symbol: ${symbol}`);
+    console.log(`  - Timeframe: ${timeframe}`);
+    console.log(`  - Limit: ${limit} records`);
+
     setLoading(true);
     setError(null);
+
     try {
+      console.log("[DataFetch] 🔄 Calling apiClient.fetchData()...");
       const result = await apiClient.fetchData(symbol, timeframe, limit);
+      const fetchDuration = Date.now() - fetchStartTime;
+
+      console.log(`[DataFetch] ✅ Data fetch completed successfully (${fetchDuration}ms)`);
+      console.log("[DataFetch] 📊 Data fetch results:");
+      console.log(`  - Symbol: ${result.symbol}`);
+      console.log(`  - Records returned: ${result.rows}`);
+      console.log(`  - Data size: ${result.data ? result.data.length : 0} entries`);
+
+      if (result.data && result.data.length > 0) {
+        const firstEntry = result.data[0];
+        const lastEntry = result.data[result.data.length - 1];
+        console.log("  - Date range:");
+        console.log(`    * First: ${firstEntry.timestamp || firstEntry.date || 'N/A'}`);
+        console.log(`    * Last: ${lastEntry.timestamp || lastEntry.date || 'N/A'}`);
+
+        // Basic data validation
+        console.log("[DataFetch] 🔍 Data validation:");
+        const hasOHLC = firstEntry.open !== undefined && firstEntry.high !== undefined &&
+                        firstEntry.low !== undefined && firstEntry.close !== undefined;
+        const hasVolume = firstEntry.volume !== undefined;
+
+        console.log(`  - OHLC data: ${hasOHLC ? '✅ Present' : '❌ Missing'}`);
+        console.log(`  - Volume data: ${hasVolume ? '✅ Present' : '❌ Missing'}`);
+
+        if (hasOHLC) {
+          console.log(`  - Sample OHLC: O=${firstEntry.open}, H=${firstEntry.high}, L=${firstEntry.low}, C=${firstEntry.close}`);
+        }
+        if (hasVolume) {
+          console.log(`  - Sample Volume: ${firstEntry.volume}`);
+        }
+      } else {
+        console.warn("[DataFetch] ⚠️  No data returned from API");
+      }
+
       setData(result);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to fetch data");
+      const fetchDuration = Date.now() - fetchStartTime;
+      console.error(`[DataFetch] ❌ Data fetch failed after ${fetchDuration}ms`);
+
+      // Detailed error analysis for data fetching
+      console.error("[DataFetch] 🔍 Data fetch error analysis:");
+      let errorMessage = "Failed to fetch data";
+
+      if (err?.code === 'ECONNABORTED') {
+        errorMessage = "Data fetch timed out - server may be overloaded";
+        console.error("  - Timeout: Request took too long to complete");
+        console.error("  - Possible solutions:");
+        console.error("    * Reduce data limit");
+        console.error("    * Check server resources");
+        console.error("    * Try different timeframe");
+      } else if (err?.code === 'ERR_NETWORK') {
+        errorMessage = "Network error - cannot reach data API";
+        console.error("  - Network interruption during data fetch");
+        console.error("  - Check internet connection and server status");
+      } else if (err?.response) {
+        console.error(`  - Server error: ${err.response.status} ${err.response.statusText}`);
+        console.error("  - Response data:", err.response.data);
+
+        if (err.response.status === 400) {
+          errorMessage = "Invalid data request parameters";
+          console.error("  - Bad request: Check symbol format and parameters");
+          console.error("  - Valid symbol examples: BTC/USDT, AAPL");
+          console.error("  - Valid timeframes: 1m, 5m, 1h, 1d, etc.");
+        } else if (err.response.status === 404) {
+          errorMessage = "Symbol or data not found";
+          console.error("  - Symbol may not exist or be unavailable");
+          console.error("  - Check symbol spelling and format");
+          console.error("  - Try a different symbol or data source");
+        } else if (err.response.status === 429) {
+          errorMessage = "Rate limit exceeded - too many requests";
+          console.error("  - API rate limit hit");
+          console.error("  - Wait a moment before trying again");
+        } else if (err.response.status === 500) {
+          errorMessage = "Server error during data retrieval";
+          console.error("  - Internal server error");
+          console.error("  - Check server logs for data source issues");
+        } else if (err.response.status === 503) {
+          errorMessage = "Data service temporarily unavailable";
+          console.error("  - Service unavailable");
+          console.error("  - Data provider may be down or rate limited");
+        }
+      } else {
+        console.error("  - Unknown error during data fetch");
+      }
+
+      console.error("[DataFetch] 📋 Full data fetch error details:", {
+        symbol: symbol,
+        timeframe: timeframe,
+        limit: limit,
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack,
+        response: err?.response?.data,
+        fetch_duration_ms: fetchDuration
+      });
+
+      setError(err.response?.data?.detail || errorMessage);
     } finally {
       setLoading(false);
+      const totalDuration = Date.now() - fetchStartTime;
+      console.log(`[DataFetch] ⏱️  Data fetch operation completed (${totalDuration}ms total)`);
     }
   };
 

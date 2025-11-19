@@ -1,5 +1,7 @@
 """Configuration management for the trading bot."""
 
+from __future__ import annotations
+
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -60,18 +62,24 @@ class TradingConfig(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize configuration and create directories."""
         super().__init__(**kwargs)
-        logger.debug(f"Initializing TradingConfig: exchange={self.exchange_id}, data_provider={self.data_provider}, backtest_engine={self.backtest_engine}")
+        logger.debug(
+            f"Initializing TradingConfig: exchange={self.exchange_id}, data_provider={self.data_provider}, backtest_engine={self.backtest_engine}"
+        )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Configuration initialized: data_dir={self.data_dir}, results_dir={self.results_dir}, log_file={self.log_file}")
+        logger.info(
+            f"Configuration initialized: data_dir={self.data_dir}, results_dir={self.results_dir}, log_file={self.log_file}"
+        )
 
 
 def load_config() -> TradingConfig:
     """Load trading configuration from environment."""
     logger.info("Loading configuration from environment")
     config = TradingConfig()
-    logger.info(f"Configuration loaded successfully: exchange={config.exchange_id}, initial_capital=${config.initial_capital:,.2f}")
+    logger.info(
+        f"Configuration loaded successfully: exchange={config.exchange_id}, initial_capital=${config.initial_capital:,.2f}"
+    )
     return config
 
 
@@ -94,7 +102,7 @@ class BacktestConfiguration:
 
     # Strategy configuration
     strategy_name: str = "ma_crossover"
-    strategy_params: dict[str, float | int | str | bool] = None
+    strategy_params: dict[str, float | int | str | bool] | None = None
 
     # Engine configuration
     engine: str = "custom"
@@ -192,8 +200,8 @@ class BacktestRun:
 
     def _make_json_serializable(self, obj):
         """Recursively convert Timestamp and other non-serializable objects to strings."""
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         if isinstance(obj, pd.Timestamp):
             return obj.isoformat()
@@ -309,6 +317,7 @@ class BacktestHistory:
             try:
                 if self.history_file.exists():
                     import shutil
+
                     shutil.copy2(self.history_file, backup_file)
                     logger.info(f"Corrupted history backed up to {backup_file}")
             except Exception as backup_error:

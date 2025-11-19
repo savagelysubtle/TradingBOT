@@ -1,6 +1,7 @@
 """Monte Carlo simulation engine for trading strategies with GPU acceleration."""
 
 import logging
+import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -8,9 +9,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+# Check Python version for GPU compatibility
+PYTHON_VERSION = sys.version_info[:2]
+PYTHON_VERSION_STR = f"{PYTHON_VERSION[0]}.{PYTHON_VERSION[1]}"
+
 # Try to import CuPy for GPU acceleration, fallback to NumPy
 # The code will automatically fall back to NumPy if CuPy is not available
 # Supports CUDA 13.x (cupy-cuda13x), 12.x (cupy-cuda12x), or 11.x (cupy-cuda11x)
+# NOTE: CuPy only supports Python 3.9-3.13 (not 3.14+ yet)
 try:
     import cupy as cp
 
@@ -31,10 +37,20 @@ except ImportError:
     cp = np  # Fallback to NumPy if CuPy not available
     CUPY_AVAILABLE = False
     logger_gpu = logging.getLogger(__name__)
-    logger_gpu.warning(
-        "CuPy not available - using CPU (NumPy) for Monte Carlo simulations. "
-        "Install with: uv add cupy-cuda13x"
-    )
+
+    # Provide helpful message based on Python version
+    if PYTHON_VERSION >= (3, 14):
+        logger_gpu.warning(
+            f"Python {PYTHON_VERSION_STR} detected - CuPy doesn't support Python 3.14+ yet. "
+            "Using CPU (NumPy) for Monte Carlo simulations. "
+            "For GPU acceleration (10-100x faster), run Monte Carlo with Python 3.13.4: "
+            "`uv run --python 3.13.4 trading-bot montecarlo ...` or use the `montecarlo-gpu` script."
+        )
+    else:
+        logger_gpu.warning(
+            f"CuPy not available - using CPU (NumPy) for Monte Carlo simulations. "
+            f"Install with: `uv sync --extra gpu --python {PYTHON_VERSION_STR} --prerelease=allow`"
+        )
 
 from trading_bot.backtesting.engine import BacktestEngine
 from trading_bot.strategies.base import BaseStrategy
@@ -52,6 +68,8 @@ class MonteCarloEngine:
         slippage: float = 0.0005,
         n_simulations: int = 1000,
         random_seed: int | None = None,
+        max_gpu_memory_gb: float = 8.0,  # Limit GPU memory usage
+        force_cpu: bool = False,  # Force CPU usage even if GPU available
     ):
         """Initialize Monte Carlo engine.
 
@@ -136,7 +154,7 @@ class MonteCarloEngine:
         data_length = len(data)
 
         for i in range(self.n_simulations):
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 50 == 0:  # More frequent logging
                 logger.info(f"Simulation {i + 1}/{self.n_simulations}")
 
             # Randomly sample indices with replacement (GPU-accelerated if available)
@@ -186,7 +204,7 @@ class MonteCarloEngine:
         simulation_results = []
 
         for i in range(self.n_simulations):
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 50 == 0:  # More frequent logging
                 logger.info(f"Simulation {i + 1}/{self.n_simulations}")
 
             # Shuffle trades and recalculate portfolio value (GPU-accelerated if available)
@@ -228,7 +246,7 @@ class MonteCarloEngine:
         std_return = returns.std()
 
         for i in range(self.n_simulations):
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 50 == 0:  # More frequent logging
                 logger.info(f"Simulation {i + 1}/{self.n_simulations}")
 
             # Create synthetic price series (GPU-accelerated if available)
@@ -341,13 +359,44 @@ class MonteCarloEngine:
         win_rates = [r["win_rate"] for r in simulation_results]
         profit_factors = [r["profit_factor"] for r in simulation_results]
 
-        # Convert to GPU arrays for faster statistical calculations (if CuPy available)
-        if CUPY_AVAILABLE:
-            returns_gpu = cp.asarray(returns)
-            final_values_gpu = cp.asarray(final_values)
-            max_drawdowns_gpu = cp.asarray(max_drawdowns)
-            win_rates_gpu = cp.asarray(win_rates)
-            profit_factors_gpu = cp.asarray(profit_factors)
+        # Convert to GPU arrays for faster statistical calculations (if CuPy available and not forced to CPU)
+        use_gpu = CUPY_AVAILABLE and not self.force_cpu
+
+        if use_gpu:
+            try:
+                # Check GPU memory before allocation
+                mempool = cp.get_default_memory_pool()
+                initial_memory = mempool.used_bytes() / 1024**3  # GB
+
+                returns_gpu = cp.asarray(returns)
+                final_values_gpu = cp.asarray(final_values)
+                max_drawdowns_gpu = cp.asarray(max_drawdowns)
+                win_rates_gpu = cp.asarray(win_rates)
+                profit_factors_gpu = cp.asarray(profit_factors)
+
+                allocation_memory = mempool.used_bytes() / 1024**3 - initial_memory  # GB
+                logger.debug(f"GPU memory allocated for statistics: {allocation_memory:.2f} GB")
+
+                # Check if we have enough memory left (keep 1GB free)
+                total_memory = cp.cuda.Device().mem_info[1] / 1024**3  # GB
+                available_memory = cp.cuda.Device().mem_info[0] / 1024**3  # GB
+                if available_memory < 1.0:
+                    logger.warning(f"Low GPU memory available: {available_memory:.2f} GB. Switching to CPU for statistics.")
+                    use_gpu = False
+                    cp._default_memory_pool.free_all_blocks()
+                else:
+                    logger.debug(f"GPU memory available: {available_memory:.2f} GB of {total_memory:.2f} GB")
+
+            except (cp.cuda.memory.OutOfMemoryError, cp.cuda.runtime.CUDARuntimeError) as e:
+                logger.warning(f"GPU memory error during statistics calculation: {e}. Switching to CPU.")
+                use_gpu = False
+                try:
+                    cp._default_memory_pool.free_all_blocks()
+                except:
+                    pass
+            except Exception as e:
+                logger.warning(f"GPU error during statistics calculation: {e}. Switching to CPU.")
+                use_gpu = False
 
             # Calculate statistics on GPU
             mean_return = float(cp.mean(returns_gpu))
@@ -423,7 +472,7 @@ class MonteCarloEngine:
             "method": method,
             "n_simulations": self.n_simulations,
             "initial_capital": self.initial_capital,
-            "gpu_accelerated": CUPY_AVAILABLE,  # Indicate if GPU was used
+            "gpu_accelerated": use_gpu,  # Indicate if GPU was used
             # Return statistics
             "mean_return": mean_return,
             "median_return": median_return,

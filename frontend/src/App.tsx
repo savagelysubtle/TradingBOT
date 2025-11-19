@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import Backtest from "./pages/Backtest";
 import Strategies from "./pages/Strategies";
 import DataFetch from "./pages/DataFetch";
+import MonteCarlo from "./pages/MonteCarlo";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Route path="/backtest" element={<Backtest />} />
         <Route path="/strategies" element={<Strategies />} />
         <Route path="/data" element={<DataFetch />} />
+        <Route path="/monte-carlo" element={<MonteCarlo />} />
       </Routes>
     </Layout>
   );

@@ -68,6 +68,7 @@ class TradingBot:
             logger.info("DataFetcher initialized")
 
         self.broker: BaseBroker | None = None
+        self._is_shutting_down = False
         logger.info("TradingBot initialization complete")
 
     def set_broker(self, broker: BaseBroker) -> None:
@@ -139,7 +140,10 @@ class TradingBot:
 
         # Choose backtesting engine
         use_bt = use_backtrader
+        use_vectorbt = False  # Default value
+
         if use_bt is None:
+            # No explicit backtrader preference, check config
             engine_name = self.config.backtest_engine.lower()
             if engine_name == "vectorbt":
                 if VectorBTEngine is not None:
@@ -154,8 +158,12 @@ class TradingBot:
                 use_bt = True
             else:
                 use_vectorbt = False
-        else:
-            use_vectorbt = False
+        elif use_bt is False:
+            # Explicitly don't use backtrader, check if we should use VectorBT
+            engine_name = self.config.backtest_engine.lower()
+            if engine_name == "vectorbt" and VectorBTEngine is not None:
+                use_vectorbt = True
+        # If use_bt is True, keep use_vectorbt as False (use Backtrader)
 
         if use_vectorbt:
             # Use VectorBT for ultra-fast vectorized backtesting
@@ -267,3 +275,52 @@ class TradingBot:
             f"Signal: {latest_signal}, Price: ${current_price:.2f}, "
             f"Account: ${account['equity']:.2f}",
         )
+
+    def close(self) -> None:
+        """Clean up resources and prepare for shutdown.
+
+        This method should be called when the bot is being shut down to ensure
+        proper cleanup of connections, threads, and other resources.
+        """
+        if self._is_shutting_down:
+            logger.debug("TradingBot is already shutting down")
+            return
+
+        logger.info("Shutting down TradingBot and cleaning up resources...")
+        self._is_shutting_down = True
+
+        try:
+            # Close broker connections
+            if self.broker:
+                logger.debug("Closing broker connection...")
+                # Brokers should implement their own cleanup in their close() method
+                if hasattr(self.broker, 'close'):
+                    try:
+                        self.broker.close()
+                        logger.debug("Broker closed successfully")
+                    except Exception as e:
+                        logger.error(f"Error closing broker: {e}")
+                else:
+                    logger.debug("Broker does not have close() method")
+
+            # Close data fetcher connections
+            if hasattr(self.data_fetcher, 'close'):
+                logger.debug("Closing data fetcher connection...")
+                try:
+                    self.data_fetcher.close()
+                    logger.debug("Data fetcher closed successfully")
+                except Exception as e:
+                    logger.error(f"Error closing data fetcher: {e}")
+            else:
+                logger.debug("Data fetcher does not have close() method")
+
+            logger.info("TradingBot shutdown complete")
+
+        except Exception as e:
+            logger.exception(f"Error during TradingBot shutdown: {e}")
+
+    def __del__(self) -> None:
+        """Destructor to ensure cleanup if close() wasn't called explicitly."""
+        if not self._is_shutting_down:
+            logger.warning("TradingBot destructor called without explicit close() - forcing cleanup")
+            self.close()

@@ -21,6 +21,7 @@ class BacktraderStrategy(bt.Strategy if bt else object):  # type: ignore[misc]
 
     params = (
         ("base_strategy", None),  # Renamed from 'strategy' to avoid conflict with addstrategy
+        ("signals", None),  # Pre-generated signals DataFrame
         ("short_window", 50),
         ("long_window", 200),
     )
@@ -28,31 +29,12 @@ class BacktraderStrategy(bt.Strategy if bt else object):  # type: ignore[misc]
     def __init__(self):
         """Initialize Backtrader strategy wrapper."""
         self.strategy = self.params.base_strategy  # type: ignore[assignment]
-        if self.strategy:
-            # Generate signals from strategy
-            self.data_with_signals = self.strategy.generate_signals(
-                self._get_dataframe(),
-            )
-            self.signal_index = 0
-
-    def _get_dataframe(self) -> pd.DataFrame:  # type: ignore[return]
-        """Convert Backtrader data feed to DataFrame."""
-        data_list = []
-        for i in range(len(self.data)):
-            data_list.append(
-                {
-                    "open": self.data.open[i],
-                    "high": self.data.high[i],
-                    "low": self.data.low[i],
-                    "close": self.data.close[i],
-                    "volume": self.data.volume[i],
-                },
-            )
-        return pd.DataFrame(data_list)  # type: ignore[call-overload]
+        self.data_with_signals = self.params.signals  # type: ignore[assignment]
+        self.signal_index = 0
 
     def next(self):
         """Called for each bar."""
-        if not self.strategy or self.signal_index >= len(self.data_with_signals):
+        if not self.strategy or self.data_with_signals is None or self.signal_index >= len(self.data_with_signals):
             return
 
         current_signal = self.data_with_signals["signal"].iloc[self.signal_index]
@@ -117,14 +99,18 @@ class BacktraderEngine:
         """
         logger.info(f"Running Backtrader backtest for {strategy.name} on {symbol}")
 
+        # Generate signals before creating Backtrader strategy
+        data_with_signals = strategy.generate_signals(data)
+
         # Create Cerebro engine
         cerebro = bt.Cerebro()
 
-        # Add strategy
+        # Add strategy with pre-generated signals
         # Note: Using 'base_strategy' parameter name to avoid conflict with addstrategy method
         cerebro.addstrategy(
             BacktraderStrategy,
             base_strategy=strategy,  # type: ignore[arg-type]
+            signals=data_with_signals,  # type: ignore[arg-type]
         )
 
         # Convert DataFrame to Backtrader data feed
@@ -159,14 +145,21 @@ class BacktraderEngine:
         # Extract results
         strat = results[0]
         sharpe = strat.analyzers.sharpe.get_analysis()
+        sharpe = sharpe if sharpe is not None else {}
         drawdown = strat.analyzers.drawdown.get_analysis()
+        drawdown = drawdown if drawdown is not None else {}
         trades = strat.analyzers.trades.get_analysis()
+        trades = trades if trades is not None else {}
 
         # Calculate final value
         final_value = cerebro.broker.getvalue()
 
         # Calculate buy-and-hold return
-        buy_hold_return = (data["close"].iloc[-1] - data["close"].iloc[0]) / data["close"].iloc[0]
+        first_close = data["close"].iloc[0]
+        last_close = data["close"].iloc[-1]
+        buy_hold_return = (last_close - first_close) / first_close
+        logger.info(f"Buy-hold calculation: first_close={first_close:.2f}, last_close={last_close:.2f}, return={buy_hold_return:.4f} ({buy_hold_return*100:.2f}%)")
+        logger.info(f"Data shape: {data.shape}, date range: {data.index[0]} to {data.index[-1]}")
 
         results_dict = {
             "strategy": strategy.name,
@@ -177,20 +170,24 @@ class BacktraderEngine:
             "total_return_pct": ((final_value - self.initial_capital) / self.initial_capital) * 100,
             "buy_hold_return": buy_hold_return,
             "buy_hold_return_pct": buy_hold_return * 100,
-            "sharpe_ratio": sharpe.get("sharperatio", 0.0),
-            "max_drawdown": drawdown.get("max", {}).get("drawdown", 0.0),
-            "max_drawdown_pct": abs(drawdown.get("max", {}).get("drawdown", 0.0)) * 100,
-            "total_trades": trades.get("total", {}).get("total", 0),
-            "winning_trades": trades.get("won", {}).get("total", 0),
-            "losing_trades": trades.get("lost", {}).get("total", 0),
-            "win_rate": (
-                trades.get("won", {}).get("total", 0) / trades.get("total", {}).get("total", 1)
-            ),
-            "win_rate_pct": (
-                trades.get("won", {}).get("total", 0) / trades.get("total", {}).get("total", 1)
-            )
-            * 100,
+            "sharpe_ratio": float(sharpe.get("sharperatio", 0.0) or 0.0) if sharpe else 0.0,
+            "max_drawdown": float(drawdown.get("max", {}).get("drawdown", 0.0) or 0.0) if drawdown else 0.0,
+            "max_drawdown_pct": abs(float(drawdown.get("max", {}).get("drawdown", 0.0) or 0.0) if drawdown else 0.0) * 100,
+            "total_trades": int(trades.get("total", {}).get("total", 0) or 0) if trades else 0,
+            "winning_trades": int(trades.get("won", {}).get("total", 0) or 0) if trades else 0,
+            "losing_trades": int(trades.get("lost", {}).get("total", 0) or 0) if trades else 0,
         }
+
+        # Calculate win rate safely
+        total_trades = results_dict["total_trades"]
+        winning_trades = results_dict["winning_trades"]
+
+        if total_trades > 0:
+            results_dict["win_rate"] = winning_trades / total_trades
+            results_dict["win_rate_pct"] = (winning_trades / total_trades) * 100
+        else:
+            results_dict["win_rate"] = 0.0
+            results_dict["win_rate_pct"] = 0.0
 
         logger.info(
             f"Backtest completed: Return={results_dict['total_return_pct']:.2f}%, "

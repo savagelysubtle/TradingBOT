@@ -14,31 +14,53 @@ router = APIRouter()
 @router.get("/strategies")
 async def list_strategies():
     """List all available strategies."""
+    logger.info("=" * 60)
+    logger.info("STRATEGIES ENDPOINT CALLED")
+    logger.info("=" * 60)
+
     try:
-        logger.info("Listing all available strategies")
+        logger.info("Step 1: Getting strategies list from registry...")
         strategies_list = _strategy_registry.get_strategies_list()
-        logger.debug(f"Registry returned {len(strategies_list)} strategy entries")
+        logger.info(f"Step 1: Registry returned {len(strategies_list)} strategy entries")
+
+        logger.info("Step 2: Processing strategies...")
         strategies_info = []
         available_count = 0
         for _display_name, internal_name in strategies_list:
-            is_available = _strategy_registry.is_available(internal_name)
-            display_name_full = _strategy_registry.get_display_name(internal_name)
-            if is_available:
-                available_count += 1
-            strategies_info.append(
-                {
-                    "name": internal_name,
-                    "display_name": display_name_full,
-                    "available": is_available,
-                }
-            )
-        logger.info(
-            f"Found {len(strategies_info)} total strategies ({available_count} available, "
-            f"{len(strategies_info) - available_count} unavailable)"
-        )
+            try:
+                is_available = _strategy_registry.is_available(internal_name)
+                display_name_full = _strategy_registry.get_display_name(internal_name)
+                if is_available:
+                    available_count += 1
+                strategies_info.append(
+                    {
+                        "name": internal_name,
+                        "display_name": display_name_full,
+                        "available": is_available,
+                    }
+                )
+                logger.debug(f"  - {internal_name}: available={is_available}")
+            except Exception as e:
+                logger.warning(f"Failed to process strategy {internal_name}: {e}")
+                strategies_info.append(
+                    {
+                        "name": internal_name,
+                        "display_name": internal_name,
+                        "available": False,
+                    }
+                )
+
+        logger.info("=" * 60)
+        logger.info("STRATEGIES ENDPOINT SUCCESS")
+        logger.info(f"Total: {len(strategies_info)}, Available: {available_count}, Unavailable: {len(strategies_info) - available_count}")
+        logger.info("=" * 60)
         return {"strategies": strategies_info}
     except Exception as e:
-        logger.exception(f"Failed to list strategies: {e}")
+        logger.exception("=" * 60)
+        logger.exception("ERROR: Failed to list strategies")
+        logger.exception(f"Exception type: {type(e).__name__}")
+        logger.exception(f"Exception message: {str(e)}")
+        logger.exception("=" * 60)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to list strategies: {e!s}",
@@ -48,39 +70,66 @@ async def list_strategies():
 @router.get("/strategies/{strategy_name}")
 async def get_strategy_info(strategy_name: str):
     """Get information about a specific strategy."""
-    logger.info(f"Getting strategy info for: {strategy_name}")
+    logger.info("=" * 60)
+    logger.info("GET STRATEGY INFO ENDPOINT CALLED")
+    logger.info("=" * 60)
+    logger.info(f"Strategy name: {strategy_name}")
+
     try:
-        if not _strategy_registry.is_available(strategy_name):
-            logger.warning(f"Strategy '{strategy_name}' not found or not available")
+        logger.info("Step 1: Checking if strategy is available...")
+        is_available = _strategy_registry.is_available(strategy_name)
+        logger.info(f"Step 1: Strategy available: {is_available}")
+
+        if not is_available:
+            logger.error("=" * 60)
+            logger.error(f"ERROR: Strategy '{strategy_name}' not found or not available")
+            logger.error("=" * 60)
             raise HTTPException(
                 status_code=404,
                 detail=f"Strategy '{strategy_name}' not found or not available",
             )
 
+        logger.info("Step 2: Getting strategy display name...")
         display_name = _strategy_registry.get_display_name(strategy_name)
+        logger.info(f"Step 2: ✅ Display name: {display_name}")
+
+        logger.info("Step 3: Getting strategy class...")
         strategy_class = _strategy_registry.get_strategy_class(strategy_name)
         if strategy_class is None:
-            logger.warning(f"Strategy '{strategy_name}' class not available")
+            logger.error("=" * 60)
+            logger.error(f"ERROR: Strategy '{strategy_name}' class not available")
+            logger.error("=" * 60)
             raise HTTPException(
                 status_code=404,
                 detail=f"Strategy '{strategy_name}' not available",
             )
+        logger.info(f"Step 3: ✅ Strategy class: {strategy_class.__name__}")
 
-        # Get parameter schema based on strategy name
+        logger.info("Step 4: Getting parameter schema...")
         params_schema = _get_strategy_params_schema(strategy_name)
-        logger.debug(f"Found strategy '{strategy_name}' with {len(params_schema)} parameters")
+        logger.info(f"Step 4: ✅ Found {len(params_schema)} parameters")
 
-        return {
+        result = {
             "name": strategy_name,
             "display_name": display_name,
             "class_name": strategy_class.__name__,
             "available": True,
             "parameters": params_schema,
         }
-    except HTTPException:
+        logger.info("=" * 60)
+        logger.info("GET STRATEGY INFO SUCCESS")
+        logger.info(f"Returning info for: {strategy_name}")
+        logger.info("=" * 60)
+        return result
+    except HTTPException as e:
+        logger.warning(f"HTTPException raised: {e.status_code} - {e.detail}")
         raise
     except Exception as e:
-        logger.exception(f"Failed to get strategy info for '{strategy_name}': {e}")
+        logger.exception("=" * 60)
+        logger.exception("ERROR: Failed to get strategy info")
+        logger.exception(f"Exception type: {type(e).__name__}")
+        logger.exception(f"Exception message: {str(e)}")
+        logger.exception("=" * 60)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get strategy info: {e!s}",

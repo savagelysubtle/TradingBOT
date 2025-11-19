@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
-import { Activity, BarChart3, Database, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, Database, TrendingUp, Dice6 } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,6 +12,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: "/", label: "Dashboard", icon: Activity },
     { path: "/backtest", label: "Backtest", icon: BarChart3 },
+    { path: "/monte-carlo", label: "Monte Carlo", icon: Dice6 },
     { path: "/strategies", label: "Strategies", icon: TrendingUp },
     { path: "/data", label: "Data", icon: Database },
   ];

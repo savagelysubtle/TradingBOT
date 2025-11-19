@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { BackendStatus } from "@/components/BackendStatus";
 import { apiClient, Strategy, BacktestRequest } from "@/lib/api";
+import { BASE_CURRENCIES, QUOTE_CURRENCIES, combinePair } from "@/lib/cryptoPairs";
 
 interface ParameterSchema {
   type: "integer" | "float" | "boolean";
@@ -27,7 +28,8 @@ export default function Backtest() {
   const [selectedStrategy, setSelectedStrategy] = useState("");
   const [strategyParams, setStrategyParams] = useState<Record<string, any>>({});
   const [paramSchema, setParamSchema] = useState<Record<string, ParameterSchema>>({});
-  const [symbol, setSymbol] = useState("BTC/USDT");
+  const [baseCurrency, setBaseCurrency] = useState("BTC");
+  const [quoteCurrency, setQuoteCurrency] = useState("USDT");
   const [timeframe, setTimeframe] = useState("1d");
   const [limit, setLimit] = useState(365);
   const [engine, setEngine] = useState("custom");
@@ -35,17 +37,69 @@ export default function Backtest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Combine base and quote into symbol format
+  const symbol = combinePair(baseCurrency, quoteCurrency);
+
   useEffect(() => {
     const fetchStrategies = async () => {
+      console.log("[Backtest] 📋 Starting strategy list fetch...");
+      const fetchStartTime = Date.now();
+
       try {
+        console.log("[Backtest] 🔄 Calling apiClient.getStrategies()...");
         const data = await apiClient.getStrategies();
+        const fetchDuration = Date.now() - fetchStartTime;
+
+        console.log(`[Backtest] ✅ Strategy list fetched successfully (${fetchDuration}ms)`);
+        console.log(`[Backtest] 📊 Total strategies received: ${data.length}`);
+
         const available = data.filter((s) => s.available);
-        setStrategies(available);
-        if (available.length > 0) {
-          setSelectedStrategy(available[0].name);
+        const unavailable = data.filter((s) => !s.available);
+
+        console.log(`[Backtest] ✅ Available strategies: ${available.length}`);
+        available.forEach(strategy => {
+          console.log(`  - ${strategy.name} (${strategy.display_name})`);
+        });
+
+        if (unavailable.length > 0) {
+          console.log(`[Backtest] ⚠️  Unavailable strategies: ${unavailable.length}`);
+          unavailable.forEach(strategy => {
+            console.log(`  - ${strategy.name} (${strategy.display_name}) - NOT AVAILABLE`);
+          });
         }
-      } catch (err) {
-        console.error("Failed to fetch strategies:", err);
+
+        setStrategies(available);
+
+        if (available.length > 0) {
+          const defaultStrategy = available[0];
+          console.log(`[Backtest] 🎯 Auto-selecting default strategy: ${defaultStrategy.name}`);
+          setSelectedStrategy(defaultStrategy.name);
+        } else {
+          console.warn("[Backtest] ⚠️  No available strategies found!");
+        }
+      } catch (err: any) {
+        const fetchDuration = Date.now() - fetchStartTime;
+        console.error(`[Backtest] ❌ Failed to fetch strategies (${fetchDuration}ms)`);
+
+        // Detailed error analysis
+        console.error("[Backtest] 🔍 Error analysis:");
+        if (err?.code === 'ECONNABORTED') {
+          console.error("  - Connection timeout - API server may not be running");
+        } else if (err?.code === 'ERR_NETWORK') {
+          console.error("  - Network error - cannot reach API server");
+        } else if (err?.response) {
+          console.error(`  - Server error: ${err.response.status} ${err.response.statusText}`);
+          console.error("  - Response data:", err.response.data);
+        } else {
+          console.error("  - Unknown error:", err.message);
+        }
+
+        console.error("[Backtest] 📋 Full error details:", {
+          message: err?.message,
+          code: err?.code,
+          stack: err?.stack,
+          response: err?.response?.data
+        });
       }
     };
     fetchStrategies();
@@ -53,19 +107,77 @@ export default function Backtest() {
 
   useEffect(() => {
     const fetchStrategyParams = async () => {
-      if (!selectedStrategy) return;
+      if (!selectedStrategy) {
+        console.log("[Backtest] ⏭️  No strategy selected, skipping parameter fetch");
+        return;
+      }
+
+      console.log(`[Backtest] 📋 Fetching parameters for strategy: ${selectedStrategy}`);
+      const paramFetchStartTime = Date.now();
+
       try {
+        console.log(`[Backtest] 🔄 Calling apiClient.getStrategyInfo(${selectedStrategy})...`);
         const info = await apiClient.getStrategyInfo(selectedStrategy);
+        const paramFetchDuration = Date.now() - paramFetchStartTime;
+
+        console.log(`[Backtest] ✅ Strategy info fetched successfully (${paramFetchDuration}ms)`);
+
         const params = info.parameters || {};
+        console.log(`[Backtest] 📊 Strategy parameters found: ${Object.keys(params).length}`);
+
+        if (Object.keys(params).length > 0) {
+          console.log("[Backtest] 🔧 Parameter schema:");
+          Object.entries(params).forEach(([key, schema]: [string, any]) => {
+            console.log(`  - ${key}: ${schema.type} (default: ${schema.default})`);
+            if (schema.description) {
+              console.log(`    Description: ${schema.description}`);
+            }
+            if (schema.min !== undefined || schema.max !== undefined) {
+              console.log(`    Range: ${schema.min || 'N/A'} to ${schema.max || 'N/A'}`);
+            }
+          });
+        } else {
+          console.log("[Backtest] ℹ️  Strategy has no configurable parameters");
+        }
+
         setParamSchema(params);
+
         // Initialize params with defaults
         const defaults: Record<string, any> = {};
         Object.entries(params).forEach(([key, schema]: [string, any]) => {
           defaults[key] = schema.default;
+          console.log(`[Backtest] 🎛️  Setting default value for ${key}: ${schema.default}`);
         });
+
         setStrategyParams(defaults);
-      } catch (err) {
-        console.error("Failed to fetch strategy parameters:", err);
+        console.log(`[Backtest] ✅ Strategy parameters initialized with defaults`);
+      } catch (err: any) {
+        const paramFetchDuration = Date.now() - paramFetchStartTime;
+        console.error(`[Backtest] ❌ Failed to fetch strategy parameters for ${selectedStrategy} (${paramFetchDuration}ms)`);
+
+        // Detailed error analysis
+        console.error("[Backtest] 🔍 Parameter fetch error analysis:");
+        if (err?.code === 'ECONNABORTED') {
+          console.error("  - Connection timeout - API server may be overloaded");
+        } else if (err?.code === 'ERR_NETWORK') {
+          console.error("  - Network error - cannot reach API server");
+        } else if (err?.response) {
+          console.error(`  - Server error: ${err.response.status} ${err.response.statusText}`);
+          console.error("  - Response data:", err.response.data);
+          if (err.response.status === 404) {
+            console.error("  - Strategy not found - may be unavailable or misnamed");
+          }
+        } else {
+          console.error("  - Unknown error:", err.message);
+        }
+
+        console.error("[Backtest] 📋 Full parameter fetch error details:", {
+          strategy: selectedStrategy,
+          message: err?.message,
+          code: err?.code,
+          stack: err?.stack,
+          response: err?.response?.data
+        });
       }
     };
     fetchStrategyParams();
@@ -80,12 +192,27 @@ export default function Backtest() {
 
   const handleRunBacktest = async () => {
     if (!selectedStrategy) {
-      setError("Please select a strategy");
+      const errorMsg = "Please select a strategy";
+      console.error(`[Backtest] ❌ ${errorMsg}`);
+      setError(errorMsg);
       return;
     }
 
+    console.log(`[Backtest] 🚀 Starting backtest execution for ${selectedStrategy}`);
+    const backtestStartTime = Date.now();
+
+    // Log backtest configuration
+    console.log("[Backtest] 📋 Backtest configuration:");
+    console.log(`  - Strategy: ${selectedStrategy}`);
+    console.log(`  - Symbol: ${symbol} (${baseCurrency}/${quoteCurrency})`);
+    console.log(`  - Timeframe: ${timeframe}`);
+    console.log(`  - Data limit: ${limit} candles`);
+    console.log(`  - Engine: ${engine}`);
+    console.log(`  - Strategy parameters:`, strategyParams);
+
     setLoading(true);
     setError(null);
+
     try {
       const request: BacktestRequest = {
         strategy_name: selectedStrategy,
@@ -95,12 +222,91 @@ export default function Backtest() {
         engine,
         strategy_params: strategyParams,
       };
+
+      console.log("[Backtest] 🔄 Sending backtest request to API...");
       const result = await apiClient.runBacktest(request);
+      const backtestDuration = Date.now() - backtestStartTime;
+
+      console.log(`[Backtest] ✅ Backtest completed successfully (${backtestDuration}ms)`);
+      console.log("[Backtest] 📊 Backtest results summary:");
+      console.log(`  - Status: ${result.status}`);
+      console.log(`  - Strategy: ${result.strategy}`);
+      console.log(`  - Symbol: ${result.symbol}`);
+
+      if (result.results) {
+        console.log("  - Key metrics:");
+        Object.entries(result.results).forEach(([key, value]) => {
+          if (typeof value === 'number' && !['trades', 'portfolio_history', 'kelly_metrics'].includes(key)) {
+            console.log(`    * ${key}: ${value}`);
+          }
+        });
+
+        if (result.results.trades && Array.isArray(result.results.trades)) {
+          console.log(`  - Trades executed: ${result.results.trades.length}`);
+        }
+      }
+
       setResults(result);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to run backtest");
+      const backtestDuration = Date.now() - backtestStartTime;
+      console.error(`[Backtest] ❌ Backtest failed after ${backtestDuration}ms`);
+
+      // Detailed error analysis for backtest failures
+      console.error("[Backtest] 🔍 Backtest error analysis:");
+      let errorMessage = "Failed to run backtest";
+
+      if (err?.code === 'ECONNABORTED') {
+        errorMessage = "Backtest timed out - server may be overloaded or backtest is too complex";
+        console.error("  - Timeout: Backtest took too long to complete");
+        console.error("  - Possible solutions:");
+        console.error("    * Reduce data limit");
+        console.error("    * Use VectorBT engine for faster execution");
+        console.error("    * Check server resources");
+      } else if (err?.code === 'ERR_NETWORK') {
+        errorMessage = "Network error - lost connection during backtest";
+        console.error("  - Network interruption during execution");
+        console.error("  - Check internet connection and server status");
+      } else if (err?.response) {
+        console.error(`  - Server error: ${err.response.status} ${err.response.statusText}`);
+        console.error("  - Response data:", err.response.data);
+
+        if (err.response.status === 400) {
+          errorMessage = "Invalid backtest parameters - check strategy settings";
+          console.error("  - Bad request: Invalid parameters provided");
+          console.error("  - Check parameter values and ranges");
+        } else if (err.response.status === 404) {
+          errorMessage = "Strategy or data not found";
+          console.error("  - Strategy may not be available or data unavailable");
+        } else if (err.response.status === 500) {
+          errorMessage = "Server error during backtest execution";
+          console.error("  - Internal server error");
+          console.error("  - Check server logs for details");
+        } else if (err.response.status === 503) {
+          errorMessage = "Server temporarily unavailable";
+          console.error("  - Service unavailable, try again later");
+        }
+      } else {
+        console.error("  - Unknown error during backtest execution");
+      }
+
+      console.error("[Backtest] 📋 Full backtest error details:", {
+        strategy: selectedStrategy,
+        symbol: symbol,
+        timeframe: timeframe,
+        limit: limit,
+        engine: engine,
+        parameters: strategyParams,
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack,
+        response: err?.response?.data
+      });
+
+      setError(err.response?.data?.detail || errorMessage);
     } finally {
       setLoading(false);
+      const totalDuration = Date.now() - backtestStartTime;
+      console.log(`[Backtest] ⏱️  Backtest operation completed (${totalDuration}ms total)`);
     }
   };
 
@@ -136,13 +342,34 @@ export default function Backtest() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="symbol">Symbol</Label>
-              <Input
-                id="symbol"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                placeholder="BTC/USDT"
-              />
+              <Label htmlFor="base">Base Currency</Label>
+              <Select value={baseCurrency} onValueChange={setBaseCurrency}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select base currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BASE_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency.symbol} value={currency.symbol}>
+                      {currency.name} ({currency.symbol})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quote">Quote Currency</Label>
+              <Select value={quoteCurrency} onValueChange={setQuoteCurrency}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select quote currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUOTE_CURRENCIES.map((currency) => (
+                    <SelectItem key={currency.symbol} value={currency.symbol}>
+                      {currency.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="timeframe">Timeframe</Label>
@@ -166,8 +393,11 @@ export default function Backtest() {
               <Input
                 id="limit"
                 type="number"
-                value={limit}
-                onChange={(e) => setLimit(parseInt(e.target.value))}
+                value={limit || ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setLimit(isNaN(val) ? 365 : val);
+                }}
                 min={1}
                 max={1000}
               />
@@ -211,10 +441,11 @@ export default function Backtest() {
                       <Input
                         id={key}
                         type="number"
-                        value={strategyParams[key] ?? schema.default}
-                        onChange={(e) =>
-                          handleParamChange(key, parseInt(e.target.value) || schema.default)
-                        }
+                        value={strategyParams[key] ?? schema.default ?? ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          handleParamChange(key, isNaN(val) ? (schema.default ?? 0) : val);
+                        }}
                         min={schema.min}
                         max={schema.max}
                         placeholder={schema.description}
@@ -224,10 +455,11 @@ export default function Backtest() {
                         id={key}
                         type="number"
                         step="0.1"
-                        value={strategyParams[key] ?? schema.default}
-                        onChange={(e) =>
-                          handleParamChange(key, parseFloat(e.target.value) || schema.default)
-                        }
+                        value={strategyParams[key] ?? schema.default ?? ""}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          handleParamChange(key, isNaN(val) ? (schema.default ?? 0) : val);
+                        }}
                         min={schema.min}
                         max={schema.max}
                         placeholder={schema.description}

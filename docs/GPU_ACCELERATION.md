@@ -26,13 +26,29 @@ depending on GPU and problem size).
 
 ### For Python 3.13 or Earlier (Recommended)
 
-```bash
-# Install CuPy for CUDA 12.x
-uv add --optional gpu cupy-cuda12x
+**Important:** Match the CuPy CUDA version to your NVIDIA driver's supported CUDA version.
 
-# Or manually
-uv pip install cupy-cuda12x
-```
+1. **Check your driver's CUDA version:**
+   ```bash
+   nvidia-smi
+   ```
+   Look for "CUDA Version: X.X" in the output.
+
+2. **Install matching CuPy version:**
+   ```bash
+   # For CUDA 12.x (most common)
+   uv sync --extra gpu --python 3.13.4 --prerelease=allow
+   # This installs cupy-cuda12x (configured in pyproject.toml)
+
+   # For CUDA 13.x (if your driver supports it)
+   # Update pyproject.toml to use cupy-cuda13x, then:
+   uv sync --extra gpu --python 3.13.4 --prerelease=allow
+   ```
+
+3. **Verify installation:**
+   ```bash
+   uv run --python 3.13.4 python scripts/check_cuda.py
+   ```
 
 ### For Python 3.14
 

@@ -20,6 +20,7 @@ else:
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Container
+from textual.events import Key
 from textual.widgets import (
     Button,
     DataTable,
@@ -187,6 +188,17 @@ class TradingBotTUI(App):
         self.paper_trading_page = PaperTradingPage(self)
 
         self.show_dashboard()
+
+    @on(Key, "ctrl+c")
+    def handle_ctrl_c(self) -> None:
+        """Handle Ctrl+C to cancel current operation."""
+        # If we're in the Monte Carlo tab and there's an active simulation
+        if self.current_tab == "Monte Carlo" and hasattr(self.monte_carlo_page, '_cancel_requested'):
+            if not self.monte_carlo_page._cancel_requested:
+                self.monte_carlo_page._handle_cancel()
+                self.notify("Cancelling Monte Carlo simulation...", severity="warning")
+            else:
+                self.notify("Simulation is already being cancelled", severity="information")
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         """Handle tab switching."""
